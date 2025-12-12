@@ -41,4 +41,4 @@ yarn-error.*
 /android
 
 /student_service/target
-
+/student_service/proteges_pyes_s.db
