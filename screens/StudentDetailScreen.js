@@ -20,7 +20,7 @@ export default function StudentDetailScreen({ navigation, route }) {
                 isMedical && !value && styles.none,
                 isMedical && value && styles.medicalValue
             ]}>
-                {value || 'None'}
+                {value || 'Ninguno'}
             </Text>
         </View>
     );
@@ -33,16 +33,16 @@ export default function StudentDetailScreen({ navigation, route }) {
                     <View style={styles.avatarWrapper}>
                         <View style={styles.avatarContainer}>
                             <Text style={styles.avatarText}>
-                                {student.nombre.charAt(0)}{student.apellido_paterno.charAt(0)}
+                                {student.names?.[0]}{student.paternal_last_name?.[0]}
                             </Text>
                         </View>
                     </View>
                     <View style={styles.studentInfo}>
-                        <Text style={styles.studentName}>{student.nombre} {student.apellido_paterno}</Text>
+                        <Text style={styles.studentName}>{student.names} {student.paternal_last_name}</Text>
                         <Text style={styles.studentId}>ID: {student.id}</Text>
                         <View style={styles.groupBadge}>
                             <MaterialCommunityIcons name="account-group" size={14} color={COLORS.primary} style={{ marginRight: 4 }} />
-                            <Text style={styles.groupText}>{student.grupo || 'No Group'}</Text>
+                            <Text style={styles.groupText}>{student.group || 'Sin Grupo'}</Text>
                         </View>
                     </View>
                 </View>
@@ -51,33 +51,33 @@ export default function StudentDetailScreen({ navigation, route }) {
                 <Card style={styles.card}>
                     <View style={styles.cardHeader}>
                         <MaterialCommunityIcons name="account-details" size={24} color={COLORS.primary} />
-                        <Text style={styles.sectionTitle}>Personal Information</Text>
+                        <Text style={styles.sectionTitle}>Información Personal</Text>
                     </View>
-                    <InfoRow label="Full Name" value={`${student.nombre} ${student.apellido_paterno} ${student.apellido_materno || ''}`} icon="account" />
-                    <InfoRow label="Date of Birth" value={student.fecha_nacimiento} icon="calendar" />
-                    <InfoRow label="Blood Type" value={student.tipo_de_sangre} icon="water" isMedical />
+                    <InfoRow label="Nombre Completo" value={`${student.names} ${student.paternal_last_name} ${student.maternal_last_name || ''}`} icon="account" />
+                    <InfoRow label="Fecha de Nacimiento" value={student.birth_date} icon="calendar" />
+                    <InfoRow label="Tipo de Sangre" value={student.blood_type} icon="water" isMedical />
                 </Card>
 
                 <Card style={styles.card}>
                     <View style={styles.cardHeader}>
                         <MaterialCommunityIcons name="medical-bag" size={24} color={COLORS.danger} />
-                        <Text style={[styles.sectionTitle, { color: COLORS.danger }]}>Medical Information</Text>
+                        <Text style={[styles.sectionTitle, { color: COLORS.danger }]}>Información Médica</Text>
                     </View>
-                    <InfoRow label="Allergies" value={student.alergias} icon="alert-circle-outline" isMedical />
-                    <InfoRow label="Chronic Conditions" value={student.enfermedades_cronicas} icon="hospital-box-outline" isMedical />
+                    <InfoRow label="Alergias" value={student.allergies} icon="alert-circle-outline" isMedical />
+                    <InfoRow label="Enfermedades Crónicas" value={student.chronic_conditions} icon="hospital-box-outline" isMedical />
                 </Card>
 
                 <Card style={styles.card}>
                     <View style={styles.cardHeader}>
                         <MaterialCommunityIcons name="phone" size={24} color={COLORS.success} />
-                        <Text style={[styles.sectionTitle, { color: COLORS.success }]}>Contact Information</Text>
+                        <Text style={[styles.sectionTitle, { color: COLORS.success }]}>Información de Contacto</Text>
                     </View>
-                    <InfoRow label="Student Phone" value={student.numero_telefono} icon="cellphone" />
-                    <InfoRow label="Guardian Phone" value={student.numero_tutor} icon="account-supervisor" />
+                    <InfoRow label="Teléfono del Estudiante" value={student.phone_number} icon="cellphone" />
+                    <InfoRow label="Teléfono del Tutor" value={student.guardian_phone} icon="account-supervisor" />
                 </Card>
 
                 <Button
-                    title="Close"
+                    title="Cerrar"
                     onPress={() => navigation.goBack()}
                     variant="outline"
                     style={styles.backButton}

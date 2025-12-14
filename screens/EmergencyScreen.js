@@ -46,8 +46,9 @@ export default function EmergencyScreen({ navigation }) {
                 }
 
                 // Calculate stats
+                // Calculate stats
                 const total = studentsData.length;
-                const safe = studentsData.filter(s => s.scan_color).length;
+                const safe = studentsData.filter(s => s.scanned).length; // scanned instead of scan_color check if bool
                 const missing = total - safe;
 
                 setTotalCount(total);
@@ -57,7 +58,7 @@ export default function EmergencyScreen({ navigation }) {
                 // Group Data for Performance
                 const grouped = {};
                 studentsData.forEach(student => {
-                    const groupName = student.student?.grupo || student.grupo || 'Unassigned';
+                    const groupName = student.group || 'Unassigned';
                     if (!grouped[groupName]) {
                         grouped[groupName] = {
                             name: groupName,
@@ -69,7 +70,7 @@ export default function EmergencyScreen({ navigation }) {
                     }
                     grouped[groupName].students.push(student);
                     grouped[groupName].total++;
-                    if (student.scan_color) grouped[groupName].safe++;
+                    if (student.scanned) grouped[groupName].safe++;
                     else grouped[groupName].missing++;
                 });
 
@@ -91,18 +92,18 @@ export default function EmergencyScreen({ navigation }) {
     const toggleEmergency = async () => {
         if (emergencyActive) {
             Alert.alert(
-                "End Emergency",
-                "Do you want to generate a report before closing?",
+                "Finalizar Emergencia",
+                "¿Desea generar un reporte antes de finalizar?",
                 [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "End & No Report", style: 'destructive', onPress: () => confirmEndEmergency() },
-                    { text: "End & Generate PDF", onPress: () => { generateReport(); confirmEndEmergency(); } }
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Finalizar sin Reporte", style: 'destructive', onPress: () => confirmEndEmergency() },
+                    { text: "Finalizar y Generar PDF", onPress: () => { generateReport(); confirmEndEmergency(); } }
                 ]
             );
         } else {
-            Alert.alert("Confirm", "Are you sure you want to TRIGGER the emergency protocol?", [
-                { text: "Cancel", style: "cancel" },
-                { text: "TRIGGER", style: 'destructive', onPress: confirmTriggerEmergency }
+            Alert.alert("Confirmar", "¿Está seguro de que desea ACTIVAR el protocolo de emergencia?", [
+                { text: "Cancelar", style: "cancel" },
+                { text: "ACTIVAR", style: 'destructive', onPress: confirmTriggerEmergency }
             ]);
         }
     };
@@ -112,7 +113,7 @@ export default function EmergencyScreen({ navigation }) {
             await api.triggerEmergency(true, user.id);
             setEmergencyActive(true);
             fetchData();
-        } catch (e) { Alert.alert('Error', 'Failed to start emergency'); }
+        } catch (e) { Alert.alert('Error', 'Fallo al iniciar emergencia'); }
     }
 
     const confirmEndEmergency = async () => {
@@ -120,23 +121,24 @@ export default function EmergencyScreen({ navigation }) {
             await api.triggerEmergency(false, user.id);
             setEmergencyActive(false);
             setGroups([]);
-        } catch (e) { Alert.alert('Error', 'Failed to end emergency'); }
+        } catch (e) { Alert.alert('Error', 'Fallo al finalizar emergencia'); }
     }
 
     const toggleStudentStatus = async (student) => {
         if (!emergencyActive) return;
-        if (user.role !== 'Admin' && user.role !== 'Operator' && user.role !== 'SuperUser' && user.role !== 'Teacher') return;
+        const validRoles = ['Docente', 'Prefecto', 'Doctor', 'Director', 'Operador'];
+        if (!validRoles.includes(user?.role)) return;
 
         Alert.alert(
-            "Update Status",
-            `Mark ${student.student.nombre} as ${student.scan_color ? 'MISSING' : 'SAFE'}?`,
+            "Actualizar Estado",
+            `¿Marcar a ${student.names} como ${student.scanned ? 'FALTANTE' : 'SEGURO'}?`,
             [
-                { text: "Cancel", style: "cancel" },
+                { text: "Cancelar", style: "cancel" },
                 {
-                    text: "Confirm",
+                    text: "Confirmar",
                     onPress: async () => {
                         try {
-                            await api.toggleScanStatus(student.student.id, user.id);
+                            await api.toggleScanStatus(student.id, user.id);
                             fetchData();
                             // Update local modal data slightly delayed or trigger refetch
                             // For complex state sync, simple refetch is robust
@@ -145,7 +147,7 @@ export default function EmergencyScreen({ navigation }) {
                                 // This is tricky without complex state management.
                                 // simpler: close modal or better: find student in new data
                             }, 500);
-                        } catch (e) { Alert.alert('Error', 'Failed to update status'); }
+                        } catch (e) { Alert.alert('Error', 'Fallo al actualizar estado'); }
                     }
                 }
             ]
@@ -196,31 +198,31 @@ export default function EmergencyScreen({ navigation }) {
                     </style>
                 </head>
                 <body>
-                    <h1>Emergency Report</h1>
-                    <p>Date: ${new Date().toLocaleString()}</p>
-                    <p>Generated by: ${user.username}</p>
+                    <h1>Reporte de Emergencia</h1>
+                    <p>Fecha: ${new Date().toLocaleString()}</p>
+                    <p>Generado por: ${user.username}</p>
                     
                     <div class="summary">
-                        <p>Total Students: ${totalCount}</p>
-                        <p class="safe">Safe: ${safeCount}</p>
-                        <p class="missing">Missing: ${missingCount}</p>
+                        <p>Total Estudiantes: ${totalCount}</p>
+                        <p class="safe">Seguros: ${safeCount}</p>
+                        <p class="missing">Faltantes: ${missingCount}</p>
                     </div>
 
                     <table>
                         <tr>
                             <th>ID</th>
-                            <th>Name</th>
-                            <th>Group</th>
-                            <th>Status</th>
-                            <th>Time</th>
+                            <th>Nombre</th>
+                            <th>Grupo</th>
+                            <th>Estado</th>
+                            <th>Hora</th>
                         </tr>
                         ${rawStudents.map(s => `
                             <tr>
-                                <td>${s.student.id}</td>
-                                <td>${s.student.nombre} ${s.student.apellido_paterno}</td>
-                                <td>${s.student.grupo || '-'}</td>
-                                <td class="${s.scan_color ? 'safe' : 'missing'}">${s.scan_color ? 'SAFE' : 'MISSING'}</td>
-                                <td>${s.scan_timestamp ? new Date(s.scan_timestamp).toLocaleTimeString() : '-'}</td>
+                                <td>${s.id}</td>
+                                <td>${s.names} ${s.paternal_last_name}</td>
+                                <td>${s.group || '-'}</td>
+                                <td class="${s.scanned ? 'safe' : 'missing'}">${s.scanned ? 'SEGURO' : 'FALTANTE'}</td>
+                                <td>${'-'}</td> 
                             </tr>
                         `).join('')}
                     </table>
@@ -232,7 +234,7 @@ export default function EmergencyScreen({ navigation }) {
             await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
         } catch (error) {
             console.error('Report error:', error);
-            Alert.alert('Error', 'Could not generate report');
+            Alert.alert('Error', 'No se pudo generar el reporte');
         }
     };
 
@@ -254,8 +256,8 @@ export default function EmergencyScreen({ navigation }) {
                     <Text style={styles.groupIconText}>{item.name}</Text>
                 </View>
                 <View>
-                    <Text style={styles.groupName}>Group {item.name}</Text>
-                    <Text style={styles.groupSub}>{item.total} Students</Text>
+                    <Text style={styles.groupName}>Grupo {item.name}</Text>
+                    <Text style={styles.groupSub}>{item.total} Estudiantes</Text>
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.textSecondary} style={{ marginLeft: 'auto' }} />
             </View>
@@ -264,39 +266,37 @@ export default function EmergencyScreen({ navigation }) {
                 <View style={[styles.progressBar, { flex: item.missing, backgroundColor: COLORS.danger }]} />
             </View>
             <View style={styles.groupStats}>
-                <Text style={{ color: COLORS.success, ...FONTS.bold }}>{item.safe} Safe</Text>
-                <Text style={{ color: COLORS.danger, ...FONTS.bold }}>{item.missing} Missing</Text>
+                <Text style={{ color: COLORS.success, ...FONTS.bold }}>{item.safe} Seguros</Text>
+                <Text style={{ color: COLORS.danger, ...FONTS.bold }}>{item.missing} Faltantes</Text>
             </View>
         </TouchableOpacity>
     );
 
     const renderStudentItem = (student) => (
         <TouchableOpacity
-            key={student.student.id}
+            key={student.id}
             activeOpacity={0.7}
             onPress={() => toggleStudentStatus(student)}
-            style={[styles.row, student.scan_color ? { borderLeftColor: student.scan_color, borderLeftWidth: 4 } : { borderLeftColor: COLORS.danger, borderLeftWidth: 4 }]}
+            style={[styles.row, student.scanned ? { borderLeftColor: student.teacher_color || COLORS.success, borderLeftWidth: 4 } : { borderLeftColor: COLORS.danger, borderLeftWidth: 4 }]}
         >
             <View style={styles.rowContent}>
                 <View style={styles.studentInfo}>
-                    <Text style={styles.name}>{student.student.nombre} {student.student.apellido_paterno}</Text>
-                    <Text style={styles.details}>ID: {student.student.id}</Text>
+                    <Text style={styles.name}>{student.names} {student.paternal_last_name}</Text>
+                    <Text style={styles.details}>ID: {student.id}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                    {student.scan_color ? (
+                    {student.scanned ? (
                         <View>
-                            <View style={[styles.badge, { backgroundColor: `${student.scan_color}15`, borderColor: student.scan_color }]}>
-                                <MaterialCommunityIcons name="shield-check" size={16} color={student.scan_color} style={{ marginRight: 4 }} />
-                                <Text style={[styles.badgeText, { color: student.scan_color }]}>SAFE</Text>
+                            <View style={[styles.badge, { backgroundColor: `${student.teacher_color || COLORS.success}15`, borderColor: student.teacher_color || COLORS.success }]}>
+                                <MaterialCommunityIcons name="shield-check" size={16} color={student.teacher_color || COLORS.success} style={{ marginRight: 4 }} />
+                                <Text style={[styles.badgeText, { color: student.teacher_color || COLORS.success }]}>SEGURO</Text>
                             </View>
-                            {student.scan_teacher_name && (
-                                <Text style={[styles.teacherText, { color: student.scan_color }]}>{student.scan_teacher_name}</Text>
-                            )}
+                            {/* Teacher name not available in current backend response - omit for now or add to backend */}
                         </View>
                     ) : (
                         <View style={[styles.badge, { backgroundColor: COLORS.danger + '15', borderColor: COLORS.danger }]}>
                             <MaterialCommunityIcons name="alert-circle-outline" size={16} color={COLORS.danger} style={{ marginRight: 4 }} />
-                            <Text style={[styles.badgeText, { color: COLORS.danger }]}>MISSING</Text>
+                            <Text style={[styles.badgeText, { color: COLORS.danger }]}>FALTANTE</Text>
                         </View>
                     )}
                 </View>
@@ -309,11 +309,11 @@ export default function EmergencyScreen({ navigation }) {
         return (
             <View style={styles.counterContainer}>
                 <View style={[styles.counterBox, { backgroundColor: COLORS.success + '10', borderColor: COLORS.success }]}>
-                    <Text style={[styles.counterLabel, { color: COLORS.success }]}>SAFE</Text>
+                    <Text style={[styles.counterLabel, { color: COLORS.success }]}>SEGUROS</Text>
                     <Text style={[styles.counterValue, { color: COLORS.success }]}>{safeCount}</Text>
                 </View>
                 <View style={[styles.counterBox, { backgroundColor: COLORS.danger + '10', borderColor: COLORS.danger }]}>
-                    <Text style={[styles.counterLabel, { color: COLORS.danger }]}>MISSING</Text>
+                    <Text style={[styles.counterLabel, { color: COLORS.danger }]}>FALTANTES</Text>
                     <Text style={[styles.counterValue, { color: COLORS.danger }]}>{missingCount}</Text>
                 </View>
             </View>
@@ -324,21 +324,19 @@ export default function EmergencyScreen({ navigation }) {
         <ScreenWrapper>
             <StatusBar barStyle="light-content" backgroundColor={emergencyActive ? COLORS.danger : COLORS.primary} />
             <View style={[styles.header, { backgroundColor: emergencyActive ? COLORS.danger : COLORS.primary }]}>
-                <Text style={styles.headerTitle}>Emergency Monitor</Text>
+                <Text style={styles.headerTitle}>Monitor de Emergencia</Text>
 
-                {emergencyActive && (
-                    <TouchableOpacity
-                        style={styles.historyBtn}
-                        onPress={() => setHistoryModalVisible(true)}
-                    >
-                        <MaterialCommunityIcons name="history" size={24} color={COLORS.white} />
-                        <Text style={styles.historyBtnText}>History</Text>
-                    </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                    style={styles.historyBtn}
+                    onPress={() => setHistoryModalVisible(true)}
+                >
+                    <MaterialCommunityIcons name="history" size={24} color={COLORS.white} />
+                    <Text style={styles.historyBtnText}>Historial</Text>
+                </TouchableOpacity>
 
                 <View style={[styles.statusContainer, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
                     <MaterialCommunityIcons name={emergencyActive ? "alert-octagon" : "shield-check"} size={24} color="white" style={{ marginRight: 8 }} />
-                    <Text style={styles.headerSubtitle}>{emergencyActive ? 'EMERGENCY ACTIVE' : 'SYSTEM NORMAL'}</Text>
+                    <Text style={styles.headerSubtitle}>{emergencyActive ? 'EMERGENCIA ACTIVA' : 'SISTEMA NORMAL'}</Text>
                 </View>
             </View>
 
@@ -357,8 +355,8 @@ export default function EmergencyScreen({ navigation }) {
             ) : (
                 <View style={styles.safeStateContainer}>
                     <DownloadIcon />
-                    <Text style={styles.safeStateText}>No active emergency.</Text>
-                    <Text style={styles.safeStateSubText}>Students are safe. Trigger only in case of real emergency or drill.</Text>
+                    <Text style={styles.safeStateText}>No hay emergencia activa</Text>
+                    <Text style={styles.safeStateSubText}>Los estudiantes están seguros. Active solo en caso de emergencia real o simulacro.</Text>
                 </View>
             )}
 
@@ -375,12 +373,12 @@ export default function EmergencyScreen({ navigation }) {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Scan History</Text>
+                            <Text style={styles.modalTitle}>Historial de Escaneos</Text>
                             <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
                                 <MaterialCommunityIcons name="close" size={24} color={COLORS.text} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.modalSubtitle}>Recent actions</Text>
+                        <Text style={styles.modalSubtitle}>Acciones recientes</Text>
 
                         <FlatList
                             data={historyData}
@@ -397,9 +395,9 @@ export default function EmergencyScreen({ navigation }) {
                                     <View style={{ flex: 1 }}>
                                         <Text style={styles.historyText}>
                                             <Text style={{ fontWeight: 'bold' }}>{item.student_name}</Text>
-                                            {item.action === 'REVOKED' ? ' marked missing' : ' marked safe'}
+                                            {item.action === 'REVOKED' ? ' marcado faltante' : ' marcado seguro'}
                                         </Text>
-                                        <Text style={styles.historySubText}>by {item.user_name} • {new Date(item.timestamp).toLocaleTimeString()}</Text>
+                                        <Text style={styles.historySubText}>por {item.user_name} • {new Date(item.timestamp).toLocaleTimeString()}</Text>
                                     </View>
                                 </View>
                             )}
@@ -413,12 +411,12 @@ export default function EmergencyScreen({ navigation }) {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Group {selectedGroup?.name}</Text>
+                            <Text style={styles.modalTitle}>Grupo {selectedGroup?.name}</Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)}>
                                 <MaterialCommunityIcons name="close" size={24} color={COLORS.text} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.modalSubtitle}>{selectedGroup?.safe} Safe • {selectedGroup?.missing} Missing</Text>
+                        <Text style={styles.modalSubtitle}>{selectedGroup?.safe} Seguros • {selectedGroup?.missing} Faltantes</Text>
 
                         <ScrollView showsVerticalScrollIndicator={false}>
                             {selectedGroupStudents.map(student => renderStudentItem(student))}
@@ -427,10 +425,10 @@ export default function EmergencyScreen({ navigation }) {
                 </View>
             </Modal>
 
-            {(user?.role === 'Admin' || user?.role === 'Operator' || user?.role === 'SuperUser') && (
+            {['Director', 'Operador'].includes(user?.role) && (
                 <View style={styles.bottomControls}>
                     <Button
-                        title={emergencyActive ? "END EMERGENCY" : "TRIGGER EMERGENCY"}
+                        title={emergencyActive ? "FINALIZAR EMERGENCIA" : "ACTIVAR EMERGENCIA"}
                         onPress={toggleEmergency}
                         variant={emergencyActive ? 'secondary' : 'danger'}
                         style={styles.actionButton}
@@ -490,10 +488,10 @@ const styles = StyleSheet.create({
     badgeText: { fontSize: 10, ...FONTS.bold, letterSpacing: 0.5 },
     teacherText: { fontSize: 9, ...FONTS.medium, marginTop: 4, textAlign: 'right' },
 
-    fab: { position: 'absolute', bottom: 100, right: 20, ...SHADOWS.large },
+    fab: { position: 'absolute', bottom: 180, right: 20, ...SHADOWS.large },
     fabCircle: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
 
-    safeStateContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, marginTop: 50 },
+    safeStateContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl },
     safeStateText: { fontSize: 20, color: COLORS.text, ...FONTS.bold, marginBottom: SPACING.s },
     safeStateSubText: { fontSize: 16, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 24 },
 

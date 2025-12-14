@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+tarjetas_de_estudiantes/
 
 # Expo
 .expo/

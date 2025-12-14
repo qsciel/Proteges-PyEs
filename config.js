@@ -16,8 +16,8 @@
  * - Ngrok: 'https://your-subdomain.ngrok-free.dev'
  */
 //export const API_URL = 'https://lichenoid-smirchless-audrianna.ngrok-free.dev';
-//export const API_URL = 'http://192.168.1.10:5000';
-export const API_URL = 'https://lichenoid-smirchless-audrianna.ngrok-free.dev';
+export const API_URL = 'http://192.168.1.10:5000';
+//export const API_URL = 'http://127.0.0.1:5000';
 // ========== Environment Configuration ==========
 
 /**

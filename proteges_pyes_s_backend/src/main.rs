@@ -1,3 +1,4 @@
+mod constants;
 mod db;
 mod handlers;
 mod models;
@@ -44,13 +45,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     db::init_students(&pool).await?;
 
     // crear el estado compartido
-    let state = AppState { db: pool.clone() };
+    let state = AppState {
+        db: pool.clone(),
+        emergency_active: std::sync::Arc::new(tokio::sync::RwLock::new(false)),
+    };
     // crear el router con las rutas y el estado
     let app = create_router().with_state(state);
 
     // 127.0.0.1 para tunnel y 0.0.0.0 para red local
-    //let addr = SocketAddr::from(([0, 0, 0, 0], 5000));
-    let addr = SocketAddr::from(([127, 0, 0, 1], 5000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 5000));
+    //let addr = SocketAddr::from(([127, 0, 0, 1], 5000));
 
     info!("Corriendo API en http://{}", addr);
 

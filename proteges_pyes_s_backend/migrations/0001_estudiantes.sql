@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS estudiantes (
     id_control_escolar        TEXT PRIMARY KEY,
     nombres                   TEXT NOT NULL,
     apellido_paterno          TEXT NOT NULL,
-    apellido_materno          TEXT NOT NULL,
+    apellido_materno          TEXT,
     fecha_nacimiento          DATE NOT NULL,
     especialidad              TEXT NOT NULL,
     grupo                     TEXT NOT NULL,

@@ -11,11 +11,11 @@ import { LIMITS } from '../constants/appConstants';
  */
 export const validateUsername = (username) => {
     if (!username || username.trim().length === 0) {
-        return { valid: false, error: 'Username is required' };
+        return { valid: false, error: 'El usuario es obligatorio' };
     }
 
     if (username.length > LIMITS.MAX_USERNAME_LENGTH) {
-        return { valid: false, error: `Username must be ${LIMITS.MAX_USERNAME_LENGTH} characters or less` };
+        return { valid: false, error: `El usuario debe tener ${LIMITS.MAX_USERNAME_LENGTH} caracteres o menos` };
     }
 
     return { valid: true, error: null };
@@ -28,15 +28,15 @@ export const validateUsername = (username) => {
  */
 export const validatePassword = (password) => {
     if (!password || password.length === 0) {
-        return { valid: false, error: 'Password is required' };
+        return { valid: false, error: 'La contraseña es obligatoria' };
     }
 
     if (password.length < LIMITS.MIN_PASSWORD_LENGTH) {
-        return { valid: false, error: `Password must be at least ${LIMITS.MIN_PASSWORD_LENGTH} characters` };
+        return { valid: false, error: `La contraseña debe tener al menos ${LIMITS.MIN_PASSWORD_LENGTH} caracteres` };
     }
 
     if (password.length > LIMITS.MAX_PASSWORD_LENGTH) {
-        return { valid: false, error: `Password must be ${LIMITS.MAX_PASSWORD_LENGTH} characters or less` };
+        return { valid: false, error: `La contraseña debe tener ${LIMITS.MAX_PASSWORD_LENGTH} caracteres o menos` };
     }
 
     return { valid: true, error: null };
@@ -49,13 +49,13 @@ export const validatePassword = (password) => {
  */
 export const validateStudentId = (studentId) => {
     if (!studentId || studentId.trim().length === 0) {
-        return { valid: false, error: 'Student ID is required' };
+        return { valid: false, error: 'El ID de estudiante es obligatorio' };
     }
 
     // Student IDs should be alphanumeric
     const alphanumericRegex = /^[a-zA-Z0-9]+$/;
     if (!alphanumericRegex.test(studentId)) {
-        return { valid: false, error: 'Student ID must be alphanumeric' };
+        return { valid: false, error: 'El ID de estudiante debe ser alfanumérico' };
     }
 
     return { valid: true, error: null };
@@ -68,11 +68,11 @@ export const validateStudentId = (studentId) => {
  */
 export const validateGroupName = (groupName) => {
     if (!groupName || groupName.trim().length === 0) {
-        return { valid: false, error: 'Group name is required' };
+        return { valid: false, error: 'El nombre del grupo es obligatorio' };
     }
 
     if (groupName.length > LIMITS.MAX_GROUP_NAME_LENGTH) {
-        return { valid: false, error: `Group name must be ${LIMITS.MAX_GROUP_NAME_LENGTH} characters or less` };
+        return { valid: false, error: `El nombre del grupo debe tener ${LIMITS.MAX_GROUP_NAME_LENGTH} caracteres o menos` };
     }
 
     return { valid: true, error: null };

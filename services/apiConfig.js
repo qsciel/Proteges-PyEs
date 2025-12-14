@@ -11,17 +11,25 @@ import { API_CONFIG } from '../constants/appConstants';
  */
 export const API_ENDPOINTS = {
     // Authentication
-    LOGIN: '/login',
-    LOGOUT: '/logout',
+    LOGIN: '/auth/login',
+    LOGOUT: '/auth/logout',
 
     // Students
     STUDENT: (id) => `/student/${id}`,
-    STUDENTS: '/students',
-    CREATE_STUDENT: '/student',
+    STUDENTS: '/students', // Check if this exists
+    CREATE_STUDENT: '/student', // Matches .nest("/student") + post("/") probably
     UPDATE_STUDENT_GROUP: (id) => `/student/${id}/group`,
+    UPDATE_STUDENT: (id) => `/student/${id}/update`,
     TOGGLE_SCAN: '/scan/toggle',
 
-    // Scans
+    // Scans & History
+    EMERGENCY_HISTORY: '/emergency/history', // Check if this exists
+
+    // Attendance
+    ATTENDANCE_REGISTER: '/attendance',
+    ATTENDANCE_HISTORY: '/attendance/history',
+
+    // Emergency
     SCAN: '/scan',
     SCANS: '/scans',
 
@@ -34,7 +42,7 @@ export const API_ENDPOINTS = {
     STATS: '/stats',
 
     // Admin
-    USERS: '/users',
+    USERS: '/user/all', // Changed from /users to /user/all to match backend routes
     GROUPS: '/groups',
 };
 

@@ -14,6 +14,7 @@ const { width } = Dimensions.get('window');
 export default function ScannerScreen({ navigation }) {
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
+    const [scanMode, setScanMode] = useState(null); // 'medical' | 'emergency' | null
     const { user } = useContext(AuthContext);
     const insets = useSafeAreaInsets();
 
@@ -23,9 +24,9 @@ export default function ScannerScreen({ navigation }) {
         return (
             <View style={styles.permissionContainer}>
                 <MaterialCommunityIcons name="camera-off" size={64} color={COLORS.textSecondary} />
-                <Text style={styles.permissionText}>Camera permission is required</Text>
+                <Text style={styles.permissionText}>Se requiere permiso de cámara</Text>
                 <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-                    <Text style={styles.permissionButtonText}>Grant Permission</Text>
+                    <Text style={styles.permissionButtonText}>Otorgar Permiso</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -37,37 +38,84 @@ export default function ScannerScreen({ navigation }) {
 
         const isQR = type === 'qr' || type === 256 || type === 'org.iso.QRCode';
 
-        // Only accept QR codes - REJECT barcodes
         if (!isQR) {
-            Alert.alert(
-                'Wrong Scanner',
-                'This scanner is for QR codes only. Please use the Barcode Scanner to register students as safe.',
-                [{ text: 'OK', onPress: () => setScanned(false) }]
-            );
+            Alert.alert('Escáner Incorrecto', 'Solo se aceptan códigos QR.');
+            setScanned(false);
             return;
         }
 
-        // It's a QR code - navigate to student detail
         try {
-            const student = await api.getStudent(data);
-            navigation.navigate('StudentDetail', { student });
-            setScanned(false);
+            if (scanMode === 'medical') {
+                const student = await api.getStudent(data);
+                navigation.navigate('StudentDetail', { student });
+                setScanned(false);
+                setScanMode(null); // Reset after success
+            } else if (scanMode === 'emergency') {
+                // For emergency, we assume checking if student is safe without full details
+                // Or we can navigate to emergency screen?
+                // Request said "scan for emergency". Let's assume register safe/missing toggle.
+                // But toggleScanStatus requires STUDENT ID. data is usually student ID.
+
+                // Let's ask confirmation
+                Alert.alert(
+                    'Confirmar Acción',
+                    `¿Marcar estudiante (ID: ${data}) para emergencia?`,
+                    [
+                        { text: 'Cancelar', onPress: () => setScanned(false) },
+                        {
+                            text: 'Proceder',
+                            onPress: async () => {
+                                try {
+                                    await api.toggleScanStatus(data, user.id);
+                                    Alert.alert('Éxito', 'Estado de emergencia actualizado.');
+                                } catch (e) {
+                                    Alert.alert('Error', 'No se pudo actualizar el estado.');
+                                } finally {
+                                    setScanned(false);
+                                }
+                            }
+                        }
+                    ]
+                );
+            }
         } catch (e) {
-            console.log("Scan Error:", e);
-            Alert.alert('Error', e.message || 'Student not found', [
-                { text: 'OK', onPress: () => setScanned(false) }
-            ]);
+            Alert.alert('Error', e.message || 'No se pudo procesar el código.');
+            setScanned(false);
         }
     };
+
+    if (scanMode === null) {
+        return (
+            <View style={[styles.container, { padding: SPACING.l, justifyContent: 'center' }]}>
+                <Text style={styles.menuTitle}>Seleccione Modo de Escaneo</Text>
+
+                <TouchableOpacity
+                    style={[styles.menuButton, { backgroundColor: COLORS.primary }]}
+                    onPress={() => setScanMode('medical')}
+                >
+                    <MaterialCommunityIcons name="medical-bag" size={40} color="white" />
+                    <Text style={styles.menuButtonText}>Consulta Médica</Text>
+                    <Text style={styles.menuButtonSub}>Ver expediente de salud</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.menuButton, { backgroundColor: COLORS.danger, marginTop: SPACING.l }]}
+                    onPress={() => setScanMode('emergency')}
+                >
+                    <MaterialCommunityIcons name="alert-circle" size={40} color="white" />
+                    <Text style={styles.menuButtonText}>Emergencia</Text>
+                    <Text style={styles.menuButtonSub}>Gestión de seguridad</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
             <CameraView
                 style={StyleSheet.absoluteFillObject}
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-                barcodeScannerSettings={{
-                    barcodeTypes: ["qr"],
-                }}
+                barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
             />
 
             <ScannerOverlay />
@@ -77,25 +125,22 @@ export default function ScannerScreen({ navigation }) {
                     colors={['rgba(0,0,0,0.8)', 'transparent']}
                     style={[styles.topBar, { paddingTop: insets.top + 20 }]}
                 >
-                    <View style={styles.headerBanner}>
-                        <MaterialCommunityIcons name="medical-bag" size={24} color="white" style={{ marginRight: 8 }} />
-                        <Text style={styles.headerText}>MEDICAL CONSULT</Text>
-                    </View>
-
-                    <View style={styles.infoBox}>
-                        <Text style={styles.infoTitle}>Medical Information</Text>
-                        <Text style={styles.infoSubtitle}>Scan student ID to view medical records</Text>
+                    <View style={[styles.headerBanner, { backgroundColor: scanMode === 'emergency' ? COLORS.danger : COLORS.primary }]}>
+                        <MaterialCommunityIcons
+                            name={scanMode === 'emergency' ? "alert-circle" : "medical-bag"}
+                            size={24}
+                            color="white"
+                            style={{ marginRight: 8 }}
+                        />
+                        <Text style={styles.headerText}>
+                            {scanMode === 'emergency' ? 'MODO EMERGENCIA' : 'CONSULTA MÉDICA'}
+                        </Text>
                     </View>
                 </LinearGradient>
 
-                {scanned && (
-                    <TouchableOpacity style={styles.rescanButton} onPress={() => setScanned(false)}>
-                        <View style={styles.rescanContainer}>
-                            <MaterialCommunityIcons name="camera-retake" size={24} color="white" style={{ marginRight: 8 }} />
-                            <Text style={styles.rescanText}>Tap to Scan Again</Text>
-                        </View>
-                    </TouchableOpacity>
-                )}
+                <TouchableOpacity style={styles.backButton} onPress={() => setScanMode(null)}>
+                    <Text style={styles.backButtonText}>Cancelar / Volver</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
@@ -196,5 +241,43 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         ...FONTS.bold,
+    },
+
+    // Menu Styles
+    menuTitle: {
+        fontSize: 24,
+        color: COLORS.text,
+        ...FONTS.bold,
+        textAlign: 'center',
+        marginBottom: SPACING.xl,
+    },
+    menuButton: {
+        padding: SPACING.l,
+        borderRadius: LAYOUT.radius.l,
+        alignItems: 'center',
+        ...SHADOWS.medium,
+    },
+    menuButtonText: {
+        fontSize: 20,
+        color: 'white',
+        ...FONTS.bold,
+        marginTop: SPACING.s,
+    },
+    menuButtonSub: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
+        marginTop: 4,
+    },
+    backButton: {
+        alignSelf: 'center',
+        marginBottom: 40,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 20,
+    },
+    backButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
     },
 });

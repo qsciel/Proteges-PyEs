@@ -64,25 +64,25 @@ export default function LoginScreen() {
                                 />
                             </View>
                             <Text style={styles.title}>{APP_INFO.NAME}</Text>
-                            <Text style={styles.subtitle}>Secure Campus Access</Text>
+                            <Text style={styles.subtitle}>Acceso Seguro al Plantel</Text>
                         </View>
 
                         <Card style={styles.formCard}>
-                            <Text style={styles.cardHeader}>Welcome Back</Text>
+                            <Text style={styles.cardHeader}>Bienvenido</Text>
                             <Input
-                                label="Username"
+                                label="Usuario"
                                 value={username}
                                 onChangeText={setUsername}
                                 autoCapitalize="none"
-                                placeholder="Enter your username"
+                                placeholder="Ingrese su usuario"
                                 returnKeyType="next"
                             />
                             <Input
-                                label="Password"
+                                label="Contraseña"
                                 value={password}
                                 onChangeText={setPassword}
                                 secureTextEntry
-                                placeholder="Enter your password"
+                                placeholder="Ingrese su contraseña"
                                 returnKeyType="done"
                                 onSubmitEditing={handleLogin}
                             />
@@ -90,7 +90,7 @@ export default function LoginScreen() {
                             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                             <Button
-                                title="Sign In"
+                                title="Iniciar Sesión"
                                 onPress={handleLogin}
                                 loading={loading}
                                 style={styles.loginButton}

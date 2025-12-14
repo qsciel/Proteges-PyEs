@@ -1,17 +1,18 @@
 export const COLORS = {
-    primary: '#2563EB', // Professional Blue 600
-    primaryDark: '#1E40AF', // Blue 800
-    primaryLight: '#3B82F6', // Blue 500
-    secondary: '#059669', // Emerald 600
-    background: '#F9FAFB', // Gray 50
-    surface: '#FFFFFF', // White
-    surfaceLight: '#F3F4F6', // Gray 100
+    primary: '#316C59', // Green (Brand)
+    primaryDark: '#235041', // Darker Green
+    primaryLight: '#4B8C73', // Lighter Green
+    secondary: '#CBB27C', // Gold (Accent)
+    secondaryDark: '#A8925B', // Darker Gold
+    background: '#FFFFFE', // White (Light Background)
+    surface: '#FFFFFF', // Pure White
+    surfaceLight: '#F5F5F0', // Slight warm gray/white
     text: '#111827', // Gray 900
     textSecondary: '#6B7280', // Gray 500
     textLight: '#374151', // Gray 700
-    success: '#059669', // Emerald 600
+    success: '#059669', // Emerald 600 (Keep for success state)
     danger: '#DC2626', // Red 600
-    warning: '#D97706', // Amber 600
+    warning: '#CBB27C', // Use Gold for warning/accent
     info: '#2563EB', // Blue 600
     border: '#E5E7EB', // Gray 200
     borderDark: '#D1D5DB', // Gray 300
@@ -19,16 +20,17 @@ export const COLORS = {
     black: '#000000',
     overlay: 'rgba(0, 0, 0, 0.5)',
     transparent: 'transparent',
+    surfaceWithOpacity: 'rgba(255, 255, 255, 0.9)',
     card: '#FFFFFF',
     gray: '#9CA3AF', // Gray 400
 };
 
 export const GRADIENTS = {
-    primary: ['#2563EB', '#2563EB'], // Solid primary (no gradient)
-    secondary: ['#059669', '#059669'], // Solid secondary
-    danger: ['#DC2626', '#DC2626'], // Solid danger
-    surface: ['#FFFFFF', '#F9FAFB'], // Very subtle gradient
-    lightOverlay: ['transparent', 'rgba(255, 255, 255, 0.9)'],
+    primary: ['#316C59', '#235041'], // Green Gradient
+    secondary: ['#CBB27C', '#B59D65'], // Gold Gradient
+    danger: ['#DC2626', '#B91C1C'], // Red Gradient
+    surface: ['#FFFFFF', '#FFFFFE'], // Subtle White
+    lightOverlay: ['transparent', 'rgba(255, 255, 254, 0.9)'],
 };
 
 export const SPACING = {

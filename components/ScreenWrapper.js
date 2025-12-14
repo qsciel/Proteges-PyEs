@@ -5,8 +5,8 @@ import { COLORS } from '../theme';
 
 export default function ScreenWrapper({ children, style }) {
     return (
-        <SafeAreaView style={styles.safeArea} edges={['top']}>
-            <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+        <SafeAreaView style={styles.safeArea}>
+            <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
             <View style={[styles.container, style]}>
                 {children}
             </View>

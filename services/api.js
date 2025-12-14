@@ -176,6 +176,15 @@ class ApiService {
     }
 
     /**
+     * Update full student details
+     * @param {string} id
+     * @param {Object} studentData
+     */
+    async updateStudent(id, studentData) {
+        return this.post(API_ENDPOINTS.UPDATE_STUDENT(id), studentData);
+    }
+
+    /**
      * Update student group
      * @param {string} id 
      * @param {string} group 
@@ -192,7 +201,38 @@ class ApiService {
     async toggleScanStatus(studentId, userId) {
         return this.post(API_ENDPOINTS.TOGGLE_SCAN, { student_id: studentId, user_id: userId });
     }
+    /**
+     * Get emergency scan history
+     */
+    async getScanHistory() {
+        return this.get(API_ENDPOINTS.EMERGENCY_HISTORY);
+    }
+
+    /**
+     * Register attendance
+     * @param {string} studentId 
+     * @param {boolean} present 
+     */
+    async registerAttendance(studentId, present = true) {
+        const payload = {
+            student_id: studentId,
+            user_id: 1,
+            classroom: 'N/A',
+            present
+        };
+        return this.post(API_ENDPOINTS.ATTENDANCE_REGISTER, payload);
+    }
+
+    /**
+     * Get attendance history
+     */
+    async getAttendanceHistory() {
+        return this.get(API_ENDPOINTS.ATTENDANCE_HISTORY);
+    }
 }
 
+
 // Export singleton instance
+
+
 export default new ApiService();

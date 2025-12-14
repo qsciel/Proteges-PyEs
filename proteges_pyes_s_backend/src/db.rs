@@ -1,4 +1,4 @@
-use bcrypt::{DEFAULT_COST, hash};
+use bcrypt::{hash, DEFAULT_COST};
 use sqlx::{Pool, Row, Sqlite};
 use tracing::info;
 
@@ -20,7 +20,7 @@ pub async fn init_operator(pool: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
 
     if count == 0 {
         // !proteges.operador2477 es la contraseña por defecto del operador
-        let password_hash = hash("!proteges.operador2477", DEFAULT_COST)?;
+        let password_hash = hash("12345", DEFAULT_COST)?;
         sqlx::query(
             "INSERT INTO usuarios (nombre_usuario, nombre_mostrado, hash_contrasena, rol, color_identificador, telefono_contacto) VALUES (?, ?, ?, ?, ?, ?)"
         )
@@ -87,7 +87,7 @@ pub async fn init_teachers(pool: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
             (
                 "prof.lizdy",
                 "Lizdy Cruz",
-                "!prof.lizdy01",
+                "12345",
                 "Docente",
                 "#f63bf6ff",
                 "+52 645 987 6543",
@@ -95,7 +95,7 @@ pub async fn init_teachers(pool: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
             (
                 "prof.alonso",
                 "Luis Morales",
-                "!prof.alonso01",
+                "12345",
                 "Docente",
                 "#10b910ff",
                 "+52 645 123 4567",

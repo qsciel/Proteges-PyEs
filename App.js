@@ -13,6 +13,8 @@ import AdminScreen from './screens/AdminScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import BarcodeScannerScreen from './screens/BarcodeScannerScreen';
 import StudentDetailScreen from './screens/StudentDetailScreen';
+import AttendanceScreen from './screens/AttendanceScreen';
+import ScanHistoryScreen from './screens/ScanHistoryScreen';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import { COLORS } from './theme';
 import { isAdminUser } from './constants/userRoles';
@@ -60,7 +62,7 @@ function MainTabs({ user }) {
         name="Home"
         component={MainMenuScreen}
         options={{
-          tabBarLabel: 'Dashboard',
+          tabBarLabel: 'Inicio',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "home" : "home-outline"}
@@ -74,7 +76,7 @@ function MainTabs({ user }) {
         name="Scanner"
         component={ScannerScreen}
         options={{
-          tabBarLabel: 'Scan',
+          tabBarLabel: 'Escanear',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "qr-code" : "qr-code-outline"}
@@ -88,6 +90,7 @@ function MainTabs({ user }) {
         name="Emergency"
         component={EmergencyScreen}
         options={{
+          tabBarLabel: 'Emergencia',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "alert-circle" : "alert-circle-outline"}
@@ -145,7 +148,7 @@ function AppNavigator() {
                 headerShown: true,
                 headerStyle: { backgroundColor: COLORS.success },
                 headerTintColor: COLORS.white,
-                headerTitle: 'Register Students',
+                headerTitle: 'Registrar Estudiantes',
               }}
             />
             <Stack.Screen
@@ -157,6 +160,16 @@ function AppNavigator() {
                 headerTintColor: COLORS.white,
                 headerTitle: '',
               }}
+            />
+            <Stack.Screen
+              name="Attendance"
+              component={AttendanceScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="ScanHistory"
+              component={ScanHistoryScreen}
+              options={{ headerShown: false }}
             />
           </>
         )}

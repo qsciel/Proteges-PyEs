@@ -1,4 +1,4 @@
-use axum::{Router, routing::get};
+use axum::{routing::get, Router};
 
 use crate::handlers::user_handlers::{get_all_users, get_user};
 use crate::state::SharedState;

@@ -33,10 +33,10 @@ export default function BarcodeScannerScreen({ navigation }) {
         return (
             <View style={styles.permissionContainer}>
                 <MaterialCommunityIcons name="camera-off" size={64} color={COLORS.textSecondary} />
-                <Text style={styles.permissionText}>Camera permission is required</Text>
+                <Text style={styles.permissionText}>Se requiere permiso de cámara</Text>
                 <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
                     <LinearGradient colors={[COLORS.success, '#059669']} style={styles.gradientButton}>
-                        <Text style={styles.permissionButtonText}>Grant Permission</Text>
+                        <Text style={styles.permissionButtonText}>Otorgar Permiso</Text>
                     </LinearGradient>
                 </TouchableOpacity>
             </View>
@@ -63,14 +63,14 @@ export default function BarcodeScannerScreen({ navigation }) {
         try {
             await api.registerScan(data, user.id, type);
             setScanCount(prev => prev + 1);
-            showFeedback('success', `✓ Student ${data} registered`);
+            showFeedback('success', `✓ Estudiante ${data} registrado`);
         } catch (e) {
             console.error("Scan Error:", e);
             // Check for specific duplicate error
             if (e.message?.includes('already marked') || e.status === 409) {
-                showFeedback('warning', `⚠️ Student ${data} already safe`);
+                showFeedback('warning', `⚠️ Estudiante ${data} ya registrado`);
             } else {
-                showFeedback('error', e.message || 'Scan failed');
+                showFeedback('error', e.message || 'Escaneo falló');
             }
         }
     };
@@ -125,17 +125,17 @@ export default function BarcodeScannerScreen({ navigation }) {
                         style={styles.headerBanner}
                     >
                         <MaterialCommunityIcons name="shield-check" size={24} color="white" style={{ marginRight: 8 }} />
-                        <Text style={styles.headerText}>EMERGENCY PROTOCOL</Text>
+                        <Text style={styles.headerText}>PROTOCOLO DE EMERGENCIA</Text>
                     </LinearGradient>
 
                     <View style={styles.infoBox}>
-                        <Text style={styles.infoTitle}>Register Safe Students</Text>
-                        <Text style={styles.infoSubtitle}>Scan ID to mark student as SAFE</Text>
+                        <Text style={styles.infoTitle}>Registrar Estudiantes Seguros</Text>
+                        <Text style={styles.infoSubtitle}>Escanee ID para marcar estudiante como SEGURO</Text>
                     </View>
 
                     <View style={styles.counterContainer}>
                         <MaterialCommunityIcons name="check-circle" size={20} color={COLORS.success} style={{ marginRight: 8 }} />
-                        <Text style={styles.counterText}>Scanned: {scanCount} students</Text>
+                        <Text style={styles.counterText}>Escaneados: {scanCount} estudiantes</Text>
                     </View>
                 </LinearGradient>
             </View>

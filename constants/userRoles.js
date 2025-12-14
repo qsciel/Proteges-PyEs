@@ -3,27 +3,43 @@
  */
 
 export const USER_ROLES = {
-    ADMIN: 'Admin',
-    SUPER_USER: 'SuperUser',
-    USER: 'User',
+    DIRECTOR: 'Director',
+    OPERATOR: 'Operador',
+    TEACHER: 'Docente',
+    PREFECT: 'Prefecto',
+    DOCTOR: 'Doctor',
 };
 
 export const ROLE_PERMISSIONS = {
-    [USER_ROLES.SUPER_USER]: {
+    [USER_ROLES.DIRECTOR]: {
         canAccessAdmin: true,
         canCreateUsers: true,
         canCreateGroups: true,
         canManageEmergency: true,
         canScan: true,
     },
-    [USER_ROLES.ADMIN]: {
+    [USER_ROLES.OPERATOR]: {
         canAccessAdmin: true,
         canCreateUsers: true,
         canCreateGroups: true,
         canManageEmergency: true,
         canScan: true,
     },
-    [USER_ROLES.USER]: {
+    [USER_ROLES.TEACHER]: {
+        canAccessAdmin: false,
+        canCreateUsers: false,
+        canCreateGroups: false,
+        canManageEmergency: false,
+        canScan: true,
+    },
+    [USER_ROLES.PREFECT]: {
+        canAccessAdmin: false,
+        canCreateUsers: false,
+        canCreateGroups: false,
+        canManageEmergency: false,
+        canScan: true,
+    },
+    [USER_ROLES.DOCTOR]: {
         canAccessAdmin: false,
         canCreateUsers: false,
         canCreateGroups: false,
@@ -45,11 +61,11 @@ export const hasPermission = (user, permission) => {
 };
 
 /**
- * Check if user is admin or super user
+ * Check if user is admin or super user (Director or Operator)
  * @param {Object} user - User object with role property
- * @returns {boolean} Whether user is admin or super user
+ * @returns {boolean} Whether user is Director or Operator
  */
 export const isAdminUser = (user) => {
     if (!user || !user.role) return false;
-    return user.role === USER_ROLES.ADMIN || user.role === USER_ROLES.SUPER_USER;
+    return user.role === USER_ROLES.DIRECTOR || user.role === USER_ROLES.OPERATOR;
 };

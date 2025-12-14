@@ -1,16 +1,15 @@
 use sqlx::{Pool, Sqlite};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
-// estado compartido de la aplicación
 #[derive(Clone)]
 pub struct AppState {
-    // pool de base de datos
     pub db: Pool<Sqlite>,
+    pub emergency_active: Arc<RwLock<bool>>,
 }
 
-// alias para el estado compartido
 pub type SharedState = AppState;
 
-// permitir extraer el pool de la base de datos desde el estado
 impl axum::extract::FromRef<AppState> for Pool<Sqlite> {
     fn from_ref(state: &AppState) -> Self {
         state.db.clone()

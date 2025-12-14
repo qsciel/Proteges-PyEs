@@ -6,6 +6,7 @@ import Card from '../components/Card';
 import Button from '../components/PremiumButton';
 import Input from '../components/Input';
 import api from '../services/api';
+import { API_ENDPOINTS } from '../services/apiConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const TEACHER_COLORS = [
@@ -57,15 +58,57 @@ export default function AdminScreen() {
     // --- Group Selector Modal State (Registration) ---
     const [groupSelectorVisible, setGroupSelectorVisible] = useState(false);
 
+    // --- Search State ---
+    const [searchText, setSearchText] = useState('');
+
+    // --- View Mode State (List vs Create) ---
+    const [viewMode, setViewMode] = useState('list'); // 'list' | 'create'
+
+    // Reset view mode when tab changes
+    useEffect(() => {
+        setViewMode('list');
+        setSearchText('');
+    }, [activeTab]);
+
+    const getFilteredData = () => {
+        const text = searchText.toLowerCase();
+        if (activeTab === 'Students') {
+            return students.filter(s =>
+                (s.names + ' ' + s.paternal_last_name).toLowerCase().includes(text) ||
+                s.id.toString().includes(text) ||
+                (s.group || '').toLowerCase().includes(text)
+            );
+        }
+        if (activeTab === 'Groups') {
+            return groups.filter(g =>
+                g.name.toLowerCase().includes(text) ||
+                (g.description || '').toLowerCase().includes(text)
+            );
+        }
+        if (activeTab === 'Users') {
+            return users.filter(u =>
+                (u.display_name || '').toLowerCase().includes(text) ||
+                (u.username || '').toLowerCase().includes(text) ||
+                (u.role || '').toLowerCase().includes(text)
+            );
+        }
+        return [];
+    };
+
+    useEffect(() => {
+        // Fetch groups on mount so they are available for registration/editing
+        fetchGroups();
+    }, []);
+
     useEffect(() => {
         if (activeTab === 'Users') fetchUsers();
-        if (activeTab === 'Groups') fetchGroups();
+        // Groups already fetched on mount, but refreshing is fine
         if (activeTab === 'Students') fetchStudents();
     }, [activeTab]);
 
     const fetchUsers = async () => {
         try {
-            const data = await api.get('/users');
+            const data = await api.get(API_ENDPOINTS.USERS);
             if (data) setUsers(data);
         } catch (e) { }
     };
@@ -73,7 +116,14 @@ export default function AdminScreen() {
     const fetchGroups = async () => {
         try {
             const data = await api.get('/groups');
-            if (data) setGroups(data);
+            if (data) {
+                // Map backend ID to name for display compatibility
+                const mappedGroups = data.map(g => ({
+                    ...g,
+                    name: g.id // Use ID as the name (e.g., "5APM")
+                }));
+                setGroups(mappedGroups);
+            }
         } catch (e) { }
     };
 
@@ -88,63 +138,100 @@ export default function AdminScreen() {
 
     const handleCreateUser = async () => {
         try {
-            const response = await api.post('/users', { username, password, role, color, nombre });
-            Alert.alert('Success', 'User created');
+            // Note: Backend likely expects /user/create or similar if /users was just for GET.
+            // But usually POST /user is common. Let's check apiConfig or backend routing.
+            // Backend `user_routes.rs`: route("/create", post(create_user)) nested under /user
+            // So it should be /user/create
+            const response = await api.post('/user/create', { username, password, role, color, nombre });
+            Alert.alert('Éxito', 'Usuario creado correctamente');
             setUsername(''); setPassword(''); setNombre(''); fetchUsers();
-        } catch (e) { Alert.alert('Error', 'Failed to create user'); }
+        } catch (e) { Alert.alert('Error', 'Fallo al crear usuario'); }
     };
 
     const handleCreateGroup = async () => {
         try {
             const response = await api.post('/groups', { name: groupName, description: groupDesc });
-            Alert.alert('Success', 'Group created');
+            Alert.alert('Éxito', 'Grupo creado correctamente');
             setGroupName(''); setGroupDesc(''); fetchGroups();
-        } catch (e) { Alert.alert('Error', 'Failed to create group'); }
+        } catch (e) { Alert.alert('Error', 'Fallo al crear grupo'); }
     };
 
     const handleCreateStudent = async () => {
         try {
             if (!studentId || !studentName || !studentApPat) {
-                Alert.alert('Error', 'ID, First Name and Last Name are required');
+                Alert.alert('Error', 'ID, Nombre y Apellido Paterno son obligatorios');
                 return;
             }
 
             const payload = {
                 id: studentId,
-                nombre: studentName,
-                apellido_paterno: studentApPat,
-                apellido_materno: studentApMat || '',
-                fecha_nacimiento: studentDob || '2010-01-01',
-                tipo_de_sangre: studentBlood || 'O+',
-                alergias: studentAllergies || null,
-                enfermedades_cronicas: studentChronic || null,
-                numero_telefono: studentPhone || null,
-                numero_tutor: studentTutorPhone || null,
-                grupo: studentGroup || null
+                names: studentName,
+                paternal_last_name: studentApPat,
+                maternal_last_name: studentApMat || '',
+                birth_date: studentDob || '2010-01-01',
+                blood_type: studentBlood || 'O+',
+                allergies: studentAllergies || null,
+                chronic_conditions: studentChronic || null,
+                phone_number: studentPhone || null,
+                guardian_phone: studentTutorPhone || null,
+                group: studentGroup || null
             };
 
             await api.createStudent(payload);
-            Alert.alert('Success', 'Student registered');
+            Alert.alert('Éxito', 'Estudiante registrado correctamente');
             setStudentId(''); setStudentName(''); setStudentApPat(''); setStudentApMat('');
             setStudentAllergies(''); setStudentChronic(''); setStudentPhone(''); setStudentTutorPhone(''); setStudentBlood(''); setStudentDob('');
             fetchStudents();
-        } catch (e) { Alert.alert('Error', 'Failed to register student'); }
+        } catch (e) { Alert.alert('Error', 'Fallo al registrar estudiante'); }
     };
 
-    const openMoveModal = (student) => {
+    const openEditModal = (student) => {
         setSelectedStudent(student);
-        setTargetGroup('');
+        // Populate form with existing data
+        setStudentId(student.id);
+        setStudentName(student.names);
+        setStudentApPat(student.paternal_last_name);
+        setStudentApMat(student.maternal_last_name || '');
+        setStudentDob(student.birth_date);
+        setStudentBlood(student.blood_type || '');
+        setStudentGroup(student.group);
+        setStudentAllergies(student.allergies || '');
+        setStudentChronic(student.chronic_diseases || '');
+        setStudentTutorPhone(student.primary_guardian_phone || '');
+        setStudentPhone(student.personal_phone || '');
+
         setModalVisible(true);
     };
 
-    const handleMoveStudent = async () => {
-        if (!selectedStudent || !targetGroup) return;
+    const handleUpdateStudent = async () => {
+        if (!selectedStudent) return;
         try {
-            await api.updateStudentGroup(selectedStudent.student.id, targetGroup);
-            Alert.alert('Success', 'Student moved updated');
+            const payload = {
+                names: studentName,
+                paternal_last_name: studentApPat,
+                maternal_last_name: studentApMat || null,
+                birth_date: studentDob || '2010-01-01',
+                major: selectedStudent.major || 'General', // Keep existing or default
+                group: studentGroup,
+                blood_type: studentBlood || null,
+                allergies: studentAllergies || null,
+                chronic_conditions: studentChronic || null,
+                domicile: selectedStudent.domicile || null, // Keep existing if not editing
+                personal_phone: studentPhone || null,
+                primary_guardian_phone: studentTutorPhone || null,
+                secondary_guardian_phone: null,
+                emergency_phone: null
+            };
+
+            await api.updateStudent(selectedStudent.id, payload);
+            Alert.alert('Éxito', 'Estudiante actualizado correctamente');
             setModalVisible(false);
             fetchStudents();
-        } catch (e) { Alert.alert('Error', 'Failed to move student'); }
+
+            // Clear form
+            setStudentId(''); setStudentName(''); setStudentApPat(''); setStudentApMat('');
+            setStudentAllergies(''); setStudentChronic(''); setStudentPhone(''); setStudentTutorPhone(''); setStudentBlood(''); setStudentDob(''); setStudentGroup('');
+        } catch (e) { Alert.alert('Error', 'Fallo al actualizar estudiante'); }
     };
 
     const openGroupModal = async (group) => {
@@ -160,19 +247,19 @@ export default function AdminScreen() {
             }
         }
 
-        const filtered = allStudents.filter(s => (s.student?.grupo || s.grupo) === group.name);
+        const filtered = allStudents.filter(s => (s.group) === group.name);
         setGroupStudents(filtered);
     };
 
     const renderGroupSelector = () => (
         <View style={styles.groupSelectorContainer}>
-            <Text style={styles.label}>Assign Group</Text>
+            <Text style={styles.label}>Asignar Grupo</Text>
             <TouchableOpacity
                 style={styles.dropdownButton}
                 onPress={() => setGroupSelectorVisible(true)}
             >
                 <Text style={studentGroup ? styles.dropdownTextActive : styles.dropdownTextPlaceholder}>
-                    {studentGroup || "Select Group..."}
+                    {studentGroup || "Seleccionar Grupo..."}
                 </Text>
                 <MaterialCommunityIcons name="chevron-down" size={24} color={COLORS.textSecondary} />
             </TouchableOpacity>
@@ -180,183 +267,238 @@ export default function AdminScreen() {
         </View>
     );
 
-    const renderTabButton = (title, icon) => (
+    const renderTabButton = (title, displayTitle, icon) => (
         <TouchableOpacity onPress={() => setActiveTab(title)} style={[styles.tabButton, activeTab === title && styles.activeTabButton]}>
             <MaterialCommunityIcons name={icon} size={20} color={activeTab === title ? COLORS.primary : COLORS.textSecondary} style={{ marginRight: 8 }} />
-            <Text style={[styles.tabText, activeTab === title && styles.activeTabText]}>{title}</Text>
+            <Text style={[styles.tabText, activeTab === title && styles.activeTabText]}>{displayTitle}</Text>
         </TouchableOpacity>
     );
 
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Admin Panel</Text>
+                <Text style={styles.headerTitle}>Panel de Administración</Text>
             </View>
 
             <View style={styles.tabContainer}>
-                {renderTabButton('Students', 'account-school')}
-                {renderTabButton('Groups', 'account-group')}
-                {renderTabButton('Users', 'account-multiple')}
+                {renderTabButton('Students', 'Estudiantes', 'account-school')}
+                {renderTabButton('Groups', 'Grupos', 'account-group')}
+                {renderTabButton('Users', 'Usuarios', 'account-multiple')}
             </View>
 
+            {/* Sub-Navigation Buttons (Create vs View) */}
+            <View style={styles.subNavContainer}>
+                <TouchableOpacity
+                    style={[styles.subNavBtn, viewMode === 'list' && styles.subNavBtnActive]}
+                    onPress={() => setViewMode('list')}
+                >
+                    <Text style={[styles.subNavText, viewMode === 'list' && styles.subNavTextActive]}>Ver Lista</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.subNavBtn, viewMode === 'create' && styles.subNavBtnActive]}
+                    onPress={() => setViewMode('create')}
+                >
+                    <Text style={[styles.subNavText, viewMode === 'create' && styles.subNavTextActive]}>
+                        {activeTab === 'Students' ? 'Registrar Estudiante' :
+                            activeTab === 'Groups' ? 'Crear Grupo' : 'Crear Usuario'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
+            {viewMode === 'list' && (
+                <View style={{ paddingHorizontal: SPACING.l, marginBottom: SPACING.s }}>
+                    <Input
+                        placeholder="Buscar..."
+                        value={searchText}
+                        onChangeText={setSearchText}
+                        icon="magnify"
+                    />
+                </View>
+            )}
+
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                {/* STUDENTS TAB */}
                 {activeTab === 'Students' && (
                     <>
-                        <Card style={styles.card}>
-                            <View style={styles.cardHeader}>
-                                <MaterialCommunityIcons name="account-plus-outline" size={24} color={COLORS.primary} />
-                                <Text style={styles.sectionTitle}>Register New Student</Text>
-                            </View>
-                            <Input label="Student ID" value={studentId} onChangeText={setStudentId} placeholder="Ex: 1001" keyboardType="numeric" />
-                            <Input label="Name" value={studentName} onChangeText={setStudentName} placeholder="Ex: Maria" />
-                            <Input label="Last Name (Paterno)" value={studentApPat} onChangeText={setStudentApPat} placeholder="Ex: Garcia" />
-                            <Input label="Last Name (Materno)" value={studentApMat} onChangeText={setStudentApMat} placeholder="Ex: Lopez (Optional)" />
-
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <Input label="Birth Date" value={studentDob} onChangeText={setStudentDob} placeholder="YYYY-MM-DD" />
+                        {viewMode === 'create' ? (
+                            <Card style={styles.card}>
+                                <View style={styles.cardHeader}>
+                                    <MaterialCommunityIcons name="account-plus-outline" size={24} color={COLORS.primary} />
+                                    <Text style={styles.sectionTitle}>Registrar Nuevo Estudiante</Text>
                                 </View>
-                                <View style={{ flex: 1 }}>
-                                    <Input label="Blood Type" value={studentBlood} onChangeText={setStudentBlood} placeholder="Ex: O+" />
+                                <Input label="ID Estudiante" value={studentId} onChangeText={setStudentId} placeholder="Ej: 1001" keyboardType="numeric" />
+                                <Input label="Nombre" value={studentName} onChangeText={setStudentName} placeholder="Ej: Maria" />
+                                <Input label="Apellido Paterno" value={studentApPat} onChangeText={setStudentApPat} placeholder="Ej: Garcia" />
+                                <Input label="Apellido Materno" value={studentApMat} onChangeText={setStudentApMat} placeholder="Ej: Lopez (Opcional)" />
+
+                                <View style={{ flexDirection: 'row', gap: 10 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Input label="Fecha Nacimiento" value={studentDob} onChangeText={setStudentDob} placeholder="AAAA-MM-DD" />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Input label="Tipo Sangre" value={studentBlood} onChangeText={setStudentBlood} placeholder="Ej: O+" />
+                                    </View>
                                 </View>
-                            </View>
 
-                            <Input label="Allergies" value={studentAllergies} onChangeText={setStudentAllergies} placeholder="Ex: Peanuts, none..." multiline />
-                            <Input label="Chronic Diseases" value={studentChronic} onChangeText={setStudentChronic} placeholder="Ex: Asthma, none..." multiline />
-                            <Input label="Tutor Phone" value={studentTutorPhone} onChangeText={setStudentTutorPhone} placeholder="Ex: 555-1234" keyboardType="phone-pad" />
+                                <Input label="Alergias" value={studentAllergies} onChangeText={setStudentAllergies} placeholder="Ej: Nueces, ninguna..." multiline />
+                                <Input label="Enfermedades Crónicas" value={studentChronic} onChangeText={setStudentChronic} placeholder="Ej: Asma, ninguna..." multiline />
+                                <Input label="Teléfono Tutor" value={studentTutorPhone} onChangeText={setStudentTutorPhone} placeholder="Ej: 555-1234" keyboardType="phone-pad" />
 
-                            {renderGroupSelector()}
+                                {renderGroupSelector()}
 
-                            <Button title="Register Student" onPress={handleCreateStudent} style={{ marginTop: SPACING.m }} />
-                        </Card>
-
-                        <Text style={styles.listTitle}>All Students</Text>
-                        {students.map((item) => (
-                            <TouchableOpacity key={item.student.id} style={styles.listItem} onPress={() => openMoveModal(item)}>
-                                <View style={[styles.avatar, { backgroundColor: COLORS.surfaceWithOpacity }]}>
-                                    <Text style={[styles.avatarText, { fontSize: 14 }]}>{item.student.grupo || '??'}</Text>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.itemName}>{item.student.nombre} {item.student.apellido_paterno}</Text>
-                                    <Text style={styles.itemSub}>ID: {item.student.id}</Text>
-                                </View>
-                                <MaterialCommunityIcons name="pencil" size={20} color={COLORS.textSecondary} />
-                            </TouchableOpacity>
-                        ))}
+                                <Button title="Registrar Estudiante" onPress={handleCreateStudent} style={{ marginTop: SPACING.m }} />
+                            </Card>
+                        ) : (
+                            <>
+                                <Text style={styles.listTitle}>Todos los Estudiantes ({getFilteredData().length})</Text>
+                                {getFilteredData().length === 0 ? (
+                                    <Text style={{ textAlign: 'center', color: COLORS.textSecondary, marginTop: 20 }}>No se encontraron estudiantes.</Text>
+                                ) : (
+                                    getFilteredData().map((item) => (
+                                        <TouchableOpacity key={item.id} style={styles.listItem} onPress={() => openEditModal(item)}>
+                                            <View style={[styles.avatar, { backgroundColor: COLORS.surfaceWithOpacity }]}>
+                                                <Text style={[styles.avatarText, { fontSize: 14 }]}>{item.group || '??'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.itemName}>{item.names} {item.paternal_last_name}</Text>
+                                                <Text style={styles.itemSub}>ID: {item.id} • {item.blood_type || 'N/A'}</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="pencil" size={20} color={COLORS.textSecondary} />
+                                        </TouchableOpacity>
+                                    ))
+                                )}
+                            </>
+                        )}
                     </>
                 )}
 
+                {/* GROUPS TAB */}
                 {activeTab === 'Groups' && (
                     <>
-                        <Card style={styles.card}>
-                            <View style={styles.cardHeader}>
-                                <MaterialCommunityIcons name="account-group" size={24} color={COLORS.primary} />
-                                <Text style={styles.sectionTitle}>Create New Group</Text>
-                            </View>
-                            <Input label="Group Name" value={groupName} onChangeText={setGroupName} placeholder="Ex: 1A" />
-                            <Input label="Description" value={groupDesc} onChangeText={setGroupDesc} placeholder="Ex: First Grade Section A" />
-                            <Button title="Create Group" onPress={handleCreateGroup} style={{ marginTop: SPACING.m }} />
-                        </Card>
-
-                        <Text style={styles.listTitle}>Existing Groups (Tap to View Students)</Text>
-                        {groups.map((g) => (
-                            <TouchableOpacity key={g.id} style={styles.listItem} onPress={() => openGroupModal(g)}>
-                                <View style={[styles.avatar, { backgroundColor: COLORS.surfaceWithOpacity }]}>
-                                    <MaterialCommunityIcons name="account-group" size={20} color={COLORS.primary} />
+                        {viewMode === 'create' ? (
+                            <Card style={styles.card}>
+                                <View style={styles.cardHeader}>
+                                    <MaterialCommunityIcons name="account-group" size={24} color={COLORS.primary} />
+                                    <Text style={styles.sectionTitle}>Crear Nuevo Grupo</Text>
                                 </View>
-                                <View>
-                                    <Text style={styles.itemName}>{g.name}</Text>
-                                    <Text style={styles.itemSub}>{g.description || 'No description'}</Text>
-                                </View>
-                                <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.textSecondary} style={{ marginLeft: 'auto' }} />
-                            </TouchableOpacity>
-                        ))}
+                                <Input label="Nombre del Grupo" value={groupName} onChangeText={setGroupName} placeholder="Ej: 1A" />
+                                <Input label="Descripción" value={groupDesc} onChangeText={setGroupDesc} placeholder="Ej: Primer Grado Sección A" />
+                                <Button title="Crear Grupo" onPress={handleCreateGroup} style={{ marginTop: SPACING.m }} />
+                            </Card>
+                        ) : (
+                            <>
+                                <Text style={styles.listTitle}>Grupos Existentes ({getFilteredData().length})</Text>
+                                {getFilteredData().map((g) => (
+                                    <TouchableOpacity key={g.id} style={styles.listItem} onPress={() => openGroupModal(g)}>
+                                        <View style={[styles.avatar, { backgroundColor: COLORS.surfaceWithOpacity }]}>
+                                            <MaterialCommunityIcons name="account-group" size={20} color={COLORS.primary} />
+                                        </View>
+                                        <View>
+                                            <Text style={styles.itemName}>{g.name}</Text>
+                                            <Text style={styles.itemSub}>{g.description || 'Sin descripción'}</Text>
+                                        </View>
+                                        <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.textSecondary} style={{ marginLeft: 'auto' }} />
+                                    </TouchableOpacity>
+                                ))}
+                            </>
+                        )}
                     </>
                 )}
 
+                {/* USERS TAB */}
                 {activeTab === 'Users' && (
                     <>
-                        <Card style={styles.card}>
-                            <View style={styles.cardHeader}>
-                                <MaterialCommunityIcons name="account-plus" size={24} color={COLORS.primary} />
-                                <Text style={styles.sectionTitle}>Create User</Text>
-                            </View>
-                            <Input label="Full Name" value={nombre} onChangeText={setNombre} placeholder="Ex: John Doe" />
-                            <Input label="Username" value={username} onChangeText={setUsername} placeholder="Ex: john.doe" autoCapitalize="none" />
-                            <Input label="Password" value={password} onChangeText={setPassword} placeholder="******" secureTextEntry />
-                            <Text style={styles.label}>Role</Text>
-                            <View style={styles.roleContainer}>
-                                {['Regular', 'Admin', 'Operator', 'Teacher'].map((r) => (
-                                    <TouchableOpacity key={r} onPress={() => setRole(r)} style={[styles.roleBtn, role === r && styles.roleBtnActive]}>
-                                        <Text style={[styles.roleText, role === r && styles.roleTextActive]}>{r}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                            {role === 'Teacher' && (
-                                <View style={styles.colorGrid}>
-                                    {TEACHER_COLORS.map((c) => (
-                                        <TouchableOpacity key={c} onPress={() => setColor(c)} style={[styles.colorCircle, { backgroundColor: c }, color === c && styles.colorCircleActive]} />
+                        {viewMode === 'create' ? (
+                            <Card style={styles.card}>
+                                <View style={styles.cardHeader}>
+                                    <MaterialCommunityIcons name="account-plus" size={24} color={COLORS.primary} />
+                                    <Text style={styles.sectionTitle}>Crear Usuario</Text>
+                                </View>
+                                <Input label="Nombre Completo" value={nombre} onChangeText={setNombre} placeholder="Ej: Juan Perez" />
+                                <Input label="Usuario" value={username} onChangeText={setUsername} placeholder="Ej: juan.perez" autoCapitalize="none" />
+                                <Input label="Contraseña" value={password} onChangeText={setPassword} placeholder="******" secureTextEntry />
+                                <Text style={styles.label}>Rol</Text>
+                                <View style={styles.roleContainer}>
+                                    {['Docente', 'Prefecto', 'Doctor', 'Director', 'Operador'].map((r) => (
+                                        <TouchableOpacity key={r} onPress={() => setRole(r)} style={[styles.roleBtn, role === r && styles.roleBtnActive]}>
+                                            <Text style={[styles.roleText, role === r && styles.roleTextActive]}>{r}</Text>
+                                        </TouchableOpacity>
                                     ))}
                                 </View>
-                            )}
-                            <Button title="Create User" onPress={handleCreateUser} style={{ marginTop: SPACING.m }} />
-                        </Card>
-                        <Text style={styles.listTitle}>Existing Users</Text>
-                        {users.map((u) => (
-                            <View key={u.id} style={styles.listItem}>
-                                <View style={[styles.avatar, { backgroundColor: u.color || COLORS.primaryLight }]}>
-                                    <Text style={styles.avatarText}>{u.nombre.charAt(0)}</Text>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.itemName}>{u.nombre}</Text>
-                                    <Text style={styles.itemSub}>{u.username} • {u.role}</Text>
-                                </View>
-                            </View>
-                        ))}
+                                {role === 'Docente' && (
+                                    <View style={styles.colorGrid}>
+                                        {TEACHER_COLORS.map((c) => (
+                                            <TouchableOpacity key={c} onPress={() => setColor(c)} style={[styles.colorCircle, { backgroundColor: c }, color === c && styles.colorCircleActive]} />
+                                        ))}
+                                    </View>
+                                )}
+                                <Button title="Crear Usuario" onPress={handleCreateUser} style={{ marginTop: SPACING.m }} />
+                            </Card>
+                        ) : (
+                            <>
+                                <Text style={styles.listTitle}>Usuarios Existentes ({getFilteredData().length})</Text>
+                                {getFilteredData().map((u) => (
+                                    <View key={u.id} style={styles.listItem}>
+                                        <View style={[styles.avatar, { backgroundColor: u.color || COLORS.primaryLight }]}>
+                                            <Text style={styles.avatarText}>{(u.display_name || 'U').charAt(0)}</Text>
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.itemName}>{u.display_name || 'Usuario'}</Text>
+                                            <Text style={styles.itemSub}>{u.username} • {u.role}</Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </>
+                        )}
                     </>
                 )}
             </ScrollView>
 
             {/* Move Student Modal */}
+            {/* Edit Student Modal */}
             <Modal visible={modalVisible} transparent animationType="slide">
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Move Student</Text>
-                        <Text style={styles.modalSubtitle}>
-                            Move {selectedStudent?.student.nombre} from group {selectedStudent?.student.grupo || 'None'}
-                        </Text>
-
-                        {/* Group Selector for Move Modal */}
-                        <View style={styles.groupSelectorContainer}>
-                            <Text style={styles.label}>New Group</Text>
-                            <TouchableOpacity
-                                style={styles.dropdownButton}
-                                onPress={() => setGroupSelectorVisible(true)}
-                            >
-                                <Text style={targetGroup ? styles.dropdownTextActive : styles.dropdownTextPlaceholder}>
-                                    {targetGroup || "Select Target Group..."}
-                                </Text>
-                                <MaterialCommunityIcons name="chevron-down" size={24} color={COLORS.textSecondary} />
+                    <View style={[styles.modalContent, { height: '90%' }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Editar Estudiante</Text>
+                            <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color={COLORS.text} />
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.modalButtons}>
-                            <Button title="Cancel" onPress={() => setModalVisible(false)} variant="outline" style={{ flex: 1, marginRight: 8 }} />
-                            <Button title="Move" onPress={handleMoveStudent} style={{ flex: 1, marginLeft: 8 }} />
-                        </View>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            <Text style={styles.itemSub}>ID: {selectedStudent?.id}</Text>
+
+                            <View style={{ marginTop: 10 }}>
+                                <Input label="Nombre" value={studentName} onChangeText={setStudentName} />
+                                <Input label="Apellido Paterno" value={studentApPat} onChangeText={setStudentApPat} />
+                                <Input label="Apellido Materno (Opcional)" value={studentApMat} onChangeText={setStudentApMat} />
+
+                                <View style={{ flexDirection: 'row', gap: 10 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Input label="Fecha Nacimiento" value={studentDob} onChangeText={setStudentDob} placeholder="AAAA-MM-DD" />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Input label="Tipo Sangre" value={studentBlood} onChangeText={setStudentBlood} />
+                                    </View>
+                                </View>
+
+                                {renderGroupSelector()}
+
+                                <Input label="Alergias" value={studentAllergies} onChangeText={setStudentAllergies} multiline />
+                                <Input label="Enf. Crónicas" value={studentChronic} onChangeText={setStudentChronic} multiline />
+                                <Input label="Tel. Tutor" value={studentTutorPhone} onChangeText={setStudentTutorPhone} keyboardType="phone-pad" />
+                                <Input label="Tel. Personal" value={studentPhone} onChangeText={setStudentPhone} keyboardType="phone-pad" />
+                            </View>
+
+                            <View style={styles.modalButtons}>
+                                <Button title="Cancelar" onPress={() => setModalVisible(false)} variant="outline" style={{ flex: 1, marginRight: 8 }} />
+                                <Button title="Guardar Cambios" onPress={handleUpdateStudent} style={{ flex: 1, marginLeft: 8 }} />
+                            </View>
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
-
-            {/* Reused Group Selector Modal (Shared state with registration for simplicity, or we can separate if needed) 
-                Actually, using the same state 'studentGroup' for registration and 'targetGroup' for moving might conflict if both active.
-                The previous rewrite added 'groupSelectorVisible' state. 
-                Let's make the modal usage generic or separate. 
-                For this file, I will modify the EXISTING modal block (lines 175-205) to handle both or add a second one?
-                Better: Make the picker modal setting generic. 
-                
-                Let's use a new state 'pickerTarget' : 'register' | 'move' 
-            */}
 
             {/* Generic Group Picker Modal */}
             <Modal visible={groupSelectorVisible} transparent animationType="fade">
@@ -366,7 +508,7 @@ export default function AdminScreen() {
                     onPress={() => setGroupSelectorVisible(false)}
                 >
                     <View style={styles.pickerModalContent}>
-                        <Text style={styles.modalTitle}>Select Group</Text>
+                        <Text style={styles.modalTitle}>Seleccionar Grupo</Text>
                         <ScrollView style={{ maxHeight: 300 }}>
                             {groups.map(g => (
                                 <TouchableOpacity
@@ -390,7 +532,7 @@ export default function AdminScreen() {
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
-                        <Button title="Close" onPress={() => setGroupSelectorVisible(false)} variant="outline" style={{ marginTop: SPACING.m }} />
+                        <Button title="Cerrar" onPress={() => setGroupSelectorVisible(false)} variant="outline" style={{ marginTop: SPACING.m }} />
                     </View>
                 </TouchableOpacity>
             </Modal>
@@ -400,29 +542,29 @@ export default function AdminScreen() {
                 <View style={[styles.modalOverlay, { justifyContent: 'flex-end', padding: 0 }]}>
                     <View style={[styles.modalContent, { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, height: '70%', paddingBottom: 40 }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Group {selectedGroup?.name}</Text>
+                            <Text style={styles.modalTitle}>Grupo {selectedGroup?.name}</Text>
                             <TouchableOpacity onPress={() => setGroupModalVisible(false)}>
                                 <MaterialCommunityIcons name="close" size={24} color={COLORS.text} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.modalSubtitle}>{groupStudents.length} Students</Text>
+                        <Text style={styles.modalSubtitle}>{groupStudents.length} Estudiantes</Text>
 
                         <ScrollView showsVerticalScrollIndicator={false}>
                             {groupStudents.length > 0 ? (
                                 groupStudents.map(item => (
-                                    <View key={item.student.id} style={styles.listItem}>
+                                    <View key={item.id} style={styles.listItem}>
                                         <View style={[styles.avatar, { backgroundColor: COLORS.surfaceWithOpacity }]}>
                                             <MaterialCommunityIcons name="account" size={18} color={COLORS.textSecondary} />
                                         </View>
                                         <View style={{ flex: 1 }}>
-                                            <Text style={styles.itemName}>{item.student.nombre} {item.student.apellido_paterno}</Text>
-                                            <Text style={styles.itemSub}>ID: {item.student.id}</Text>
+                                            <Text style={styles.itemName}>{item.names} {item.paternal_last_name}</Text>
+                                            <Text style={styles.itemSub}>ID: {item.id}</Text>
                                         </View>
                                     </View>
                                 ))
                             ) : (
                                 <View style={{ padding: 20, alignItems: 'center' }}>
-                                    <Text style={{ color: COLORS.textSecondary }}>No students in this group yet.</Text>
+                                    <Text style={{ color: COLORS.textSecondary }}>No hay estudiantes en este grupo.</Text>
                                 </View>
                             )}
                         </ScrollView>
@@ -681,5 +823,37 @@ const styles = StyleSheet.create({
 
     groupSelectorContainer: {
         marginBottom: SPACING.m,
+    },
+
+    // Sub Navigation (View Toggle)
+    subNavContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: SPACING.l,
+        marginBottom: SPACING.s,
+        marginTop: SPACING.s,
+        gap: SPACING.m,
+    },
+    subNavBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.surface,
+        borderRadius: LAYOUT.radius.m,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    subNavBtnActive: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    subNavText: {
+        fontSize: 14,
+        color: COLORS.text,
+        ...FONTS.medium,
+    },
+    subNavTextActive: {
+        color: COLORS.white,
+        ...FONTS.bold,
     },
 });
