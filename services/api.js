@@ -213,11 +213,18 @@ class ApiService {
      * @param {string} studentId 
      * @param {boolean} present 
      */
-    async registerAttendance(studentId, present = true) {
+    /**
+     * Register attendance
+     * @param {string} studentId 
+     * @param {boolean} present 
+     * @param {string} classroom
+     * @param {number} userId
+     */
+    async registerAttendance(studentId, present = true, classroom = 'ENTRANCE', userId = 1) {
         const payload = {
             student_id: studentId,
-            user_id: 1,
-            classroom: 'N/A',
+            user_id: userId,
+            classroom: classroom,
             present
         };
         return this.post(API_ENDPOINTS.ATTENDANCE_REGISTER, payload);
@@ -228,6 +235,13 @@ class ApiService {
      */
     async getAttendanceHistory() {
         return this.get(API_ENDPOINTS.ATTENDANCE_HISTORY);
+    }
+
+    /**
+     * Get list of grupos/classrooms
+     */
+    async getGroups() {
+        return this.get(API_ENDPOINTS.GROUPS);
     }
 }
 

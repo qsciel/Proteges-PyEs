@@ -153,6 +153,7 @@ pub async fn init_students(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
                 "+52 645 765 4321",
                 "+52 645 234 5678",
                 "+52 645 345 6789",
+                Some("8DB37406"), // Card UID
             ),
             (
                 "2765432102",
@@ -170,6 +171,7 @@ pub async fn init_students(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
                 "+52 645 876 5432",
                 "+52 645 345 6789",
                 "+52 645 456 7890",
+                None,
             ),
         ];
 
@@ -192,6 +194,7 @@ pub async fn init_students(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
             primary_guardian_phone,
             secondary_guardian_phone,
             emergency_phone,
+            card_uid,
         ) in students
         {
             sqlx::query(
@@ -212,9 +215,10 @@ pub async fn init_students(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
                     telefono_personal, 
                     telefono_tutor_principal, 
                     telefono_tutor_secundario, 
-                    telefono_emergencia
+                    telefono_emergencia,
+                    card_uid
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 "#,
             )
             .bind(id)
@@ -232,6 +236,7 @@ pub async fn init_students(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
             .bind(primary_guardian_phone)
             .bind(secondary_guardian_phone)
             .bind(emergency_phone)
+            .bind(card_uid)
             .execute(pool)
             .await?;
             info!("Estudiante '{}' creado", names);

@@ -20,3 +20,13 @@ pub struct CreateAttendanceRequest {
     pub classroom: String,
     pub present: bool,
 }
+
+#[derive(Debug, Serialize, FromRow)]
+pub struct AttendanceHistoryResponse {
+    pub id_asistencia: i64,
+    pub id_control_escolar: String,
+    pub nombre_completo: String,
+    pub fecha_asistencia: String,
+    pub salon_clase: String,
+    pub presente: bool,
+}

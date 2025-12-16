@@ -33,10 +33,11 @@ export default function MainMenuScreen({ navigation }) {
             color: COLORS.secondary
         },
         {
-            title: 'Historial',
+            title: 'Historial Asistencia',
             icon: 'history',
-            screen: 'ScanHistory',
-            description: 'Registro de escaneos',
+            screen: 'Attendance',
+            params: { initialTab: 'history' },
+            description: 'Ver registros de asistencia',
             color: COLORS.textSecondary
         },
     ];
@@ -120,7 +121,7 @@ export default function MainMenuScreen({ navigation }) {
                         <TouchableOpacity
                             key={index}
                             style={styles.gridItem}
-                            onPress={() => navigation.navigate(item.screen)}
+                            onPress={() => navigation.navigate(item.screen, item.params || {})}
                             activeOpacity={0.8}
                         >
                             <View style={styles.cardContent}>
