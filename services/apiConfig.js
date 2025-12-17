@@ -44,6 +44,12 @@ export const API_ENDPOINTS = {
     // Admin
     USERS: '/user/all', // Changed from /users to /user/all to match backend routes
     GROUPS: '/groups',
+
+    // Notifications
+    REGISTER_PUSH_TOKEN: '/notifications/register-token',
+
+    // Justifications
+    SUBMIT_JUSTIFICATION: '/justifications/submit',
 };
 
 /**

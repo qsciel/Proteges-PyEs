@@ -17,11 +17,10 @@ export default function ScreenWrapper({ children, style }) {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS.white,
     },
     container: {
         flex: 1,
         backgroundColor: COLORS.background,
     },
 });
-

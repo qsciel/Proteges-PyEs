@@ -1,6 +1,7 @@
 use crate::{
     models::attendance::{AttendanceHistoryResponse, AttendanceRecord, CreateAttendanceRequest},
     state::AppState,
+    utils::notifications::send_push_notification,
 };
 use axum::{extract::State, http::StatusCode, Json};
 use chrono::Local;
@@ -58,10 +59,10 @@ pub async fn register_attendance(
     // Use the student's grupo as the classroom
     let final_classroom = student_grupo.clone();
 
-    sqlx::query(
+    let result = sqlx::query(
         "INSERT INTO asistencias (id_control_escolar, registrado_por, fecha_asistencia, salon_clase, presente) VALUES (?, ?, ?, ?, ?)"
     )
-    .bind(resolved_student_id)
+    .bind(&resolved_student_id)
     .bind(payload.user_id)
     .bind(now)
     .bind(&final_classroom)
@@ -75,11 +76,45 @@ pub async fn register_attendance(
         )
     })?;
 
+    let id_asistencia = result.last_insert_rowid();
+
+    // 4. Send Push Notification (async, don't block response)
+    let db_pool_clone = state.db.clone();
+    let student_id_clone = resolved_student_id.clone();
+    let classroom_clone = final_classroom.clone();
+    let type_str = if status_type == "ENTRADA" {
+        "entrada"
+    } else {
+        "salida"
+    };
+
+    // Cloning status_type is tricky because it's a &str slice reference to a string literal.
+    // Better capture the String variant.
+    let type_string = type_str.to_string();
+
+    tokio::spawn(async move {
+        // Need to pass the pool, but it must be thread safe (sqlite pool is).
+        let title = "Registro de Asistencia";
+        let body = format!(
+            "Tu hijo/a registró {} en el salón {} a las {}",
+            type_string,
+            classroom_clone,
+            chrono::Local::now().format("%H:%M")
+        );
+
+        if let Err(e) =
+            send_push_notification(&db_pool_clone, &student_id_clone, title, &body).await
+        {
+            println!("Error enviando notificación: {}", e);
+        }
+    });
+
     Ok(Json(serde_json::json!({
         "message": "Asistencia registrada",
         "type": status_type,
         "classroom": final_classroom,
-        "count": count + 1
+        "count": count + 1,
+        "id_asistencia": id_asistencia
     })))
 }
 

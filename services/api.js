@@ -243,10 +243,65 @@ class ApiService {
     async getGroups() {
         return this.get(API_ENDPOINTS.GROUPS);
     }
+
+    /**
+     * Get student portal info (public endpoint for parents)
+     */
+    async getStudentPortalInfo(studentId) {
+        return this.get(`/public/student/${studentId}`);
+    }
+
+    /**
+     * Register push notification token
+     * @param {string} studentId
+     * @param {string} token
+     * @param {string} deviceName
+     */
+    async registerPushToken(studentId, token, deviceName) {
+        return this.post(API_ENDPOINTS.REGISTER_PUSH_TOKEN, {
+            student_id: studentId,
+            token,
+            device_name: deviceName
+        });
+    }
+
+    /**
+     * Submit medical justification
+     * @param {FormData} formData
+     */
+    async submitJustification(formData) {
+        // We use fetch directly for FormData to handle multipart/form-data correctly
+        // ApiService.request sets JSON headers by default which conflicts with FormData
+        const url = getApiUrl(API_ENDPOINTS.SUBMIT_JUSTIFICATION);
+        try {
+            const response = await fetchWithTimeout(url, {
+                method: 'POST',
+                body: formData,
+                // Let browser/engine set Content-Type header with boundary
+            });
+            const data = await parseResponse(response);
+            return data;
+        } catch (error) {
+            handleNetworkError(error, API_ENDPOINTS.SUBMIT_JUSTIFICATION);
+        }
+    }
+
+    getEvidenceUrl(path) {
+        if (!path) return null;
+        // path is like "uploads/filename.jpg"
+        // we need backend url
+        return `${this.baseURL}/${path}`;
+    }
+
+    async getPendingJustifications() {
+        return this.get('/justifications/pending');
+    }
+
+    async updateJustificationStatus(id, status, comment) {
+        return this.put(`/justifications/${id}/status`, { status, admin_comment: comment });
+    }
 }
 
 
 // Export singleton instance
-
-
 export default new ApiService();

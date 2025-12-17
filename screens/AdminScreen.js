@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, ActivityIndicator } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { COLORS, SPACING, FONTS, SHADOWS, LAYOUT } from '../theme';
 import Card from '../components/Card';
@@ -20,6 +20,9 @@ export default function AdminScreen() {
     const [groups, setGroups] = useState([]);
     const [students, setStudents] = useState([]);
     const { user } = useContext(AuthContext);
+
+    // ✅ MEJORA UI: Estado de loading
+    const [loading, setLoading] = useState(false);
 
     // --- User Form State ---
     const [username, setUsername] = useState('');
@@ -107,10 +110,15 @@ export default function AdminScreen() {
     }, [activeTab]);
 
     const fetchUsers = async () => {
+        setLoading(true);
         try {
             const data = await api.get(API_ENDPOINTS.USERS);
             if (data) setUsers(data);
-        } catch (e) { }
+        } catch (e) {
+            Alert.alert('Error', 'No se pudieron cargar los usuarios');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const fetchGroups = async () => {
@@ -128,13 +136,35 @@ export default function AdminScreen() {
     };
 
     const fetchStudents = async () => {
+        setLoading(true);
         try {
             const data = await api.getEmergencyStudents();
             if (data) setStudents(data);
-        } catch (e) { }
+        } catch (e) {
+            Alert.alert('Error', 'No se pudieron cargar los estudiantes');
+        } finally {
+            setLoading(false);
+        }
     };
 
     // --- Handlers ---
+
+    // ✅ MEJORA: Validación básica de formulario
+    const validateStudentForm = () => {
+        if (!studentId || studentId.trim().length < 8) {
+            Alert.alert('Error', 'ID debe tener al menos 8 caracteres');
+            return false;
+        }
+        if (!studentName || studentName.trim().length < 2) {
+            Alert.alert('Error', 'Nombre muy corto');
+            return false;
+        }
+        if (!studentApPat || studentApPat.trim().length < 2) {
+            Alert.alert('Error', 'Apellido paterno muy corto');
+            return false;
+        }
+        return true;
+    };
 
     const handleCreateUser = async () => {
         try {
@@ -157,12 +187,9 @@ export default function AdminScreen() {
     };
 
     const handleCreateStudent = async () => {
-        try {
-            if (!studentId || !studentName || !studentApPat) {
-                Alert.alert('Error', 'ID, Nombre y Apellido Paterno son obligatorios');
-                return;
-            }
+        if (!validateStudentForm()) return;
 
+        try {
             const payload = {
                 id: studentId,
                 names: studentName,
@@ -317,6 +344,13 @@ export default function AdminScreen() {
             )}
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                {/* Loading Indicator */}
+                {loading && (
+                    <View style={{ padding: SPACING.xl, alignItems: 'center' }}>
+                        <ActivityIndicator size="large" color={COLORS.primary} />
+                        <Text style={{ marginTop: SPACING.m, color: COLORS.textSecondary }}>Cargando...</Text>
+                    </View>
+                )}
                 {/* STUDENTS TAB */}
                 {activeTab === 'Students' && (
                     <>

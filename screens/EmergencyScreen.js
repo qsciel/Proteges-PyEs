@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, RefreshControl, FlatList, Alert, StatusBar, TouchableOpacity, Modal, ScrollView } from 'react-native';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, RefreshControl, FlatList, Alert, StatusBar, TouchableOpacity, Modal, ScrollView, Switch } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 import ScreenWrapper from '../components/ScreenWrapper';
 import Button from '../components/PremiumButton';
 import { COLORS, SPACING, FONTS, SHADOWS, LAYOUT } from '../theme';
 import api from '../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Print from 'expo-print';
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle } from 'docx';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 export default function EmergencyScreen({ navigation }) {
@@ -14,7 +15,7 @@ export default function EmergencyScreen({ navigation }) {
     const [rawStudents, setRawStudents] = useState([]); // For report
     const [refreshing, setRefreshing] = useState(false);
     const [emergencyActive, setEmergencyActive] = useState(false);
-    const { user } = useContext(AuthContext);
+    const { user } = useAuth();
 
     // Counters
     const [safeCount, setSafeCount] = useState(0);
@@ -29,6 +30,14 @@ export default function EmergencyScreen({ navigation }) {
     // History Modal
     const [historyModalVisible, setHistoryModalVisible] = useState(false);
     const [historyData, setHistoryData] = useState([]);
+
+    // Report Options Modal
+    const [showReportOptions, setShowReportOptions] = useState(false);
+    const [reportOptions, setReportOptions] = useState({
+        includeContactInfo: true,
+        includeMedicalInfo: false,
+        groupBy: 'missing', // 'all', 'missing', 'safe'
+    });
 
     const fetchData = async () => {
         try {
@@ -97,7 +106,7 @@ export default function EmergencyScreen({ navigation }) {
                 [
                     { text: "Cancelar", style: "cancel" },
                     { text: "Finalizar sin Reporte", style: 'destructive', onPress: () => confirmEndEmergency() },
-                    { text: "Finalizar y Generar PDF", onPress: () => { generateReport(); confirmEndEmergency(); } }
+                    { text: "Finalizar y Generar Reporte", onPress: () => { setShowReportOptions(true); } }
                 ]
             );
         } else {
@@ -181,60 +190,192 @@ export default function EmergencyScreen({ navigation }) {
         setHistoryModalVisible(true);
     };
 
-    const generateReport = async () => {
+    const generateWordReport = async () => {
+        if (!rawStudents || rawStudents.length === 0) {
+            Alert.alert('Sin datos', 'No hay estudiantes para generar reporte.');
+            return;
+        }
+
+        setShowReportOptions(false);
+
+        const missingStudents = rawStudents.filter(s => !s.scanned);
+        const safeStudents = rawStudents.filter(s => s.scanned);
+
+        // Filter based on groupBy option
+        let studentsToShow = [];
+        if (reportOptions.groupBy === 'all') {
+            studentsToShow = rawStudents;
+        } else if (reportOptions.groupBy === 'missing') {
+            studentsToShow = missingStudents;
+        } else {
+            studentsToShow = safeStudents;
+        }
+
         try {
-            const htmlContent = `
-                <html>
-                <head>
-                    <style>
-                        body { font-family: Helvetica, sans-serif; padding: 20px; }
-                        h1 { color: ${COLORS.danger}; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #f2f2f2; }
-                        .safe { color: green; font-weight: bold; }
-                        .missing { color: red; font-weight: bold; }
-                        .summary { margin-top: 20px; font-size: 18px; }
-                    </style>
-                </head>
-                <body>
-                    <h1>Reporte de Emergencia</h1>
-                    <p>Fecha: ${new Date().toLocaleString()}</p>
-                    <p>Generado por: ${user.username}</p>
-                    
-                    <div class="summary">
-                        <p>Total Estudiantes: ${totalCount}</p>
-                        <p class="safe">Seguros: ${safeCount}</p>
-                        <p class="missing">Faltantes: ${missingCount}</p>
-                    </div>
+            // Create Word document
+            const doc = new Document({
+                sections: [{
+                    properties: {},
+                    children: [
+                        // Title
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: "REPORTE DE EMERGENCIA",
+                                    bold: true,
+                                    size: 32,
+                                    color: "DC2626",
+                                }),
+                            ],
+                            alignment: AlignmentType.CENTER,
+                            spacing: { after: 400 },
+                        }),
 
-                    <table>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Grupo</th>
-                            <th>Estado</th>
-                            <th>Hora</th>
-                        </tr>
-                        ${rawStudents.map(s => `
-                            <tr>
-                                <td>${s.id}</td>
-                                <td>${s.names} ${s.paternal_last_name}</td>
-                                <td>${s.group || '-'}</td>
-                                <td class="${s.scanned ? 'safe' : 'missing'}">${s.scanned ? 'SEGURO' : 'FALTANTE'}</td>
-                                <td>${'-'}</td> 
-                            </tr>
-                        `).join('')}
-                    </table>
-                </body>
-                </html>
-            `;
+                        // Date and Summary
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: `Fecha y Hora: ${new Date().toLocaleString('es-ES')}`,
+                                    size: 24,
+                                }),
+                            ],
+                            spacing: { after: 200 },
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: `Total de Estudiantes: ${rawStudents.length}`,
+                                    size: 24,
+                                }),
+                            ],
+                            spacing: { after: 100 },
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: `Estudiantes Seguros: ${safeStudents.length}`,
+                                    size: 24,
+                                    color: "059669",
+                                }),
+                            ],
+                            spacing: { after: 100 },
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: `Estudiantes Faltantes: ${missingStudents.length}`,
+                                    size: 24,
+                                    color: "DC2626",
+                                }),
+                            ],
+                            spacing: { after: 400 },
+                        }),
 
-            const { uri } = await Print.printToFileAsync({ html: htmlContent });
-            await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+                        // Section Title
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: reportOptions.groupBy === 'all' ? 'TODOS LOS ESTUDIANTES' :
+                                        reportOptions.groupBy === 'missing' ? 'ESTUDIANTES FALTANTES' :
+                                            'ESTUDIANTES SEGUROS',
+                                    bold: true,
+                                    size: 28,
+                                    color: reportOptions.groupBy === 'safe' ? "059669" : "DC2626",
+                                }),
+                            ],
+                            spacing: { after: 200 },
+                        }),
+
+                        // Table
+                        new Table({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            rows: [
+                                // Header row
+                                new TableRow({
+                                    children: [
+                                        new TableCell({
+                                            children: [new Paragraph({ text: "ID", alignment: AlignmentType.CENTER })],
+                                            shading: { fill: "316C59" },
+                                        }),
+                                        new TableCell({
+                                            children: [new Paragraph({ text: "Nombre Completo", alignment: AlignmentType.CENTER })],
+                                            shading: { fill: "316C59" },
+                                        }),
+                                        new TableCell({
+                                            children: [new Paragraph({ text: "Grupo", alignment: AlignmentType.CENTER })],
+                                            shading: { fill: "316C59" },
+                                        }),
+                                        new TableCell({
+                                            children: [new Paragraph({ text: "Especialidad", alignment: AlignmentType.CENTER })],
+                                            shading: { fill: "316C59" },
+                                        }),
+                                        ...(reportOptions.includeContactInfo ? [
+                                            new TableCell({
+                                                children: [new Paragraph({ text: "Contacto", alignment: AlignmentType.CENTER })],
+                                                shading: { fill: "316C59" },
+                                            }),
+                                        ] : []),
+                                    ],
+                                }),
+                                // Data rows
+                                ...studentsToShow.map(s => new TableRow({
+                                    children: [
+                                        new TableCell({ children: [new Paragraph(s.id)] }),
+                                        new TableCell({ children: [new Paragraph(`${s.names} ${s.paternal_last_name} ${s.maternal_last_name || ''}`)] }),
+                                        new TableCell({ children: [new Paragraph(s.group)] }),
+                                        new TableCell({ children: [new Paragraph(s.major || 'N/A')] }),
+                                        ...(reportOptions.includeContactInfo ? [
+                                            new TableCell({ children: [new Paragraph("Ver sistema")] }),
+                                        ] : []),
+                                    ],
+                                })),
+                            ],
+                        }),
+
+                        // Notes section
+                        new Paragraph({
+                            text: "",
+                            spacing: { before: 400, after: 200 },
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: "NOTAS Y OBSERVACIONES:",
+                                    bold: true,
+                                    size: 24,
+                                }),
+                            ],
+                            spacing: { after: 200 },
+                        }),
+                        new Paragraph({ text: "_".repeat(100), spacing: { after: 100 } }),
+                        new Paragraph({ text: "_".repeat(100), spacing: { after: 100 } }),
+                        new Paragraph({ text: "_".repeat(100), spacing: { after: 100 } }),
+                        new Paragraph({ text: "_".repeat(100), spacing: { after: 100 } }),
+                    ],
+                }],
+            });
+
+            // Convert to base64 string directly
+            const base64 = await Packer.toBase64String(doc);
+            const fileName = `Reporte_Emergencia_${new Date().toISOString().split('T')[0]}.docx`;
+            const fileUri = FileSystem.documentDirectory + fileName;
+
+            await FileSystem.writeAsStringAsync(fileUri, base64, {
+                encoding: 'base64',
+            });
+
+            // Share file
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri, {
+                    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    dialogTitle: 'Compartir Reporte de Emergencia',
+                });
+            }
+
+            Alert.alert('Éxito', 'Reporte Word generado y listo para editar');
         } catch (error) {
-            console.error('Report error:', error);
-            Alert.alert('Error', 'No se pudo generar el reporte');
+            console.error('Error generating Word report:', error);
+            Alert.alert('Error', 'No se pudo generar el reporte Word');
         }
     };
 
@@ -245,7 +386,8 @@ export default function EmergencyScreen({ navigation }) {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 3000);
+        // ✅ OPTIMIZACIÓN: Reducido de 3s a 10s para ahorrar batería y red
+        const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
     }, []);
 
@@ -435,6 +577,95 @@ export default function EmergencyScreen({ navigation }) {
                     />
                 </View>
             )}
+
+            {/* Report Options Modal */}
+            <Modal
+                visible={showReportOptions}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowReportOptions(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Personalizar Reporte</Text>
+                        <Text style={styles.modalSubtitle}>Opciones para el reporte Word editable</Text>
+
+                        <ScrollView>
+                            <View style={{ paddingVertical: SPACING.m }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.m }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ ...FONTS.semiBold, marginBottom: 4 }}>Incluir Contactos</Text>
+                                        <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>Teléfonos de emergencia</Text>
+                                    </View>
+                                    <Switch
+                                        value={reportOptions.includeContactInfo}
+                                        onValueChange={v => setReportOptions({ ...reportOptions, includeContactInfo: v })}
+                                    />
+                                </View>
+
+                                <View style={{ marginTop: SPACING.l }}>
+                                    <Text style={{ ...FONTS.semiBold, marginBottom: SPACING.m }}>Mostrar Estudiantes:</Text>
+
+                                    <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', padding: SPACING.s, marginBottom: SPACING.s }}
+                                        onPress={() => setReportOptions({ ...reportOptions, groupBy: 'missing' })}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={reportOptions.groupBy === 'missing' ? 'radiobox-marked' : 'radiobox-blank'}
+                                            size={24}
+                                            color={COLORS.primary}
+                                        />
+                                        <Text style={{ marginLeft: SPACING.s }}> Solo Faltantes ({missingCount})</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', padding: SPACING.s, marginBottom: SPACING.s }}
+                                        onPress={() => setReportOptions({ ...reportOptions, groupBy: 'all' })}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={reportOptions.groupBy === 'all' ? 'radiobox-marked' : 'radiobox-blank'}
+                                            size={24}
+                                            color={COLORS.primary}
+                                        />
+                                        <Text style={{ marginLeft: SPACING.s }}>Todos ({totalCount})</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', padding: SPACING.s }}
+                                        onPress={() => setReportOptions({ ...reportOptions, groupBy: 'safe' })}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={reportOptions.groupBy === 'safe' ? 'radiobox-marked' : 'radiobox-blank'}
+                                            size={24}
+                                            color={COLORS.primary}
+                                        />
+                                        <Text style={{ marginLeft: SPACING.s }}>Solo Seguros ({safeCount})</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </ScrollView>
+
+                        <View style={{ flexDirection: 'row', gap: SPACING.m, marginTop: SPACING.m }}>
+                            <TouchableOpacity
+                                style={{ flex: 1, padding: SPACING.m, backgroundColor: COLORS.surface, borderWidth: 2, borderColor: COLORS.border, borderRadius: 8, alignItems: 'center' }}
+                                onPress={() => setShowReportOptions(false)}
+                            >
+                                <Text style={{ ...FONTS.semiBold }}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{ flex: 1, flexDirection: 'row', padding: SPACING.m, backgroundColor: COLORS.primary, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}
+                                onPress={() => {
+                                    generateWordReport();
+                                    confirmEndEmergency();
+                                }}
+                            >
+                                <MaterialCommunityIcons name="file-word" size={20} color={COLORS.white} />
+                                <Text style={{ ...FONTS.semiBold, color: COLORS.white, marginLeft: 8 }}>Generar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </ScreenWrapper>
     );
 }

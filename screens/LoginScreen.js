@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, Image, KeyboardAvoidingView, Platform, ScrollView, Dimensions, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, Image, KeyboardAvoidingView, Platform, ScrollView, Dimensions, TouchableWithoutFeedback, Keyboard, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AuthContext } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -10,6 +10,8 @@ import { APP_INFO } from '../constants/appConstants';
 import { validateLoginForm } from '../utils/validators';
 import { handleError } from '../utils/errorHandler';
 import api from '../services/api';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -18,7 +20,8 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const { login } = useContext(AuthContext);
+    const { login } = useAuth();
+    const navigation = useNavigation();
 
     const handleLogin = async () => {
         // Validate form
@@ -96,6 +99,14 @@ export default function LoginScreen() {
                                 style={styles.loginButton}
                             />
                         </Card>
+
+                        <TouchableOpacity
+                            style={styles.parentPortalButton}
+                            onPress={() => navigation.navigate('ParentPortal')}
+                        >
+                            <MaterialCommunityIcons name="account-search" size={20} color={COLORS.primary} />
+                            <Text style={styles.parentPortalText}>Portal para Padres</Text>
+                        </TouchableOpacity>
 
                         <Text style={styles.footerText}>{APP_INFO.COPYRIGHT}</Text>
                     </ScrollView>
@@ -181,5 +192,22 @@ const styles = StyleSheet.create({
         color: COLORS.textLight,
         marginTop: SPACING.xl,
         fontSize: 12,
+    },
+    parentPortalButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: SPACING.m,
+        marginTop: SPACING.l,
+        backgroundColor: COLORS.surface,
+        borderRadius: LAYOUT.radius.m,
+        borderWidth: 2,
+        borderColor: COLORS.primary,
+        gap: SPACING.s,
+    },
+    parentPortalText: {
+        color: COLORS.primary,
+        ...FONTS.semiBold,
+        fontSize: 16,
     },
 });

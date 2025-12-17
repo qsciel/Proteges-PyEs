@@ -15,7 +15,10 @@ import BarcodeScannerScreen from './screens/BarcodeScannerScreen';
 import StudentDetailScreen from './screens/StudentDetailScreen';
 import AttendanceScreen from './screens/AttendanceScreen';
 import ScanHistoryScreen from './screens/ScanHistoryScreen';
-import { AuthProvider, AuthContext } from './context/AuthContext';
+import ParentPortalScreen from './screens/ParentPortalScreen';
+import JustificationScreen from './screens/JustificationScreen';
+import AdminJustificationScreen from './screens/AdminJustificationScreen';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { COLORS } from './theme';
 import { isAdminUser } from './constants/userRoles';
 
@@ -120,7 +123,7 @@ function MainTabs({ user }) {
 }
 
 function AppNavigator() {
-  const { user, loading } = React.useContext(AuthContext);
+  const { user, loading } = useAuth();
 
   // Show loading screen while restoring session
   if (loading) {
@@ -135,7 +138,10 @@ function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="ParentPortal" component={ParentPortalScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="MainTabs">
@@ -169,6 +175,21 @@ function AppNavigator() {
             <Stack.Screen
               name="ScanHistory"
               component={ScanHistoryScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="ParentPortal"
+              component={ParentPortalScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Justification"
+              component={JustificationScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="AdminJustifications"
+              component={AdminJustificationScreen}
               options={{ headerShown: false }}
             />
           </>

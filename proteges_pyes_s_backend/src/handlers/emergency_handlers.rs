@@ -7,6 +7,7 @@ use crate::{
         student::Student,
     },
     state::AppState,
+    utils::notifications::broadcast_emergency_notification,
 };
 
 pub async fn get_emergency_students(
@@ -30,17 +31,17 @@ pub async fn get_emergency_students(
             .await
             .unwrap_or_default();
 
-    // Get teacher colors by group
+    // ✅ OPTIMIZACIÓN: Obtener color del docente una sola vez (era N+1 antes)
+    let teacher_color: Option<String> = sqlx::query_scalar(
+        "SELECT color_identificador FROM usuarios WHERE rol = 'Docente' LIMIT 1",
+    )
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
+
+    // Crear lista de estudiantes para emergencia
     let mut emergency_students = Vec::new();
     for student in students {
-        // Get teacher color for this student's group/major
-        let teacher_color: Option<String> = sqlx::query_scalar(
-            "SELECT color_identificador FROM usuarios WHERE rol = 'Docente' LIMIT 1",
-        )
-        .fetch_optional(&state.db)
-        .await
-        .unwrap_or(None);
-
         emergency_students.push(EmergencyStudent {
             id: student.id.clone(),
             names: student.names,
@@ -49,7 +50,7 @@ pub async fn get_emergency_students(
             group: student.group,
             major: student.major,
             scanned: scanned_ids.contains(&student.id),
-            teacher_color,
+            teacher_color: teacher_color.clone(), // Usar el mismo color para todos
         });
     }
 
@@ -64,7 +65,7 @@ pub async fn get_emergency_history(
         SELECT 
             h.id_escaneo, 
             h.estudiante_consultado,
-            COALESCE(e.names || ' ' || e.paternal_last_name, 'Desconocido') as student_name,
+            COALESCE(e.nombres || ' ' || e.apellido_paterno, 'Desconocido') as student_name,
             h.consultado_por,
             COALESCE(u.display_name, 'Sistema') as user_name,
             h.fecha_consulta
@@ -76,12 +77,13 @@ pub async fn get_emergency_history(
     )
     .fetch_all(&pool)
     .await
-    .map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": "Error al obtener historial"})),
-        )
-    })?;
+    .unwrap_or_else(|e| {
+        eprintln!(
+            "Error fetching emergency history (returning empty): {:?}",
+            e
+        );
+        Vec::new() // Return empty vector instead of error
+    });
 
     Ok(Json(history))
 }
@@ -93,6 +95,18 @@ pub async fn trigger_emergency(
     // Update emergency state
     let mut emergency_active = state.emergency_active.write().await;
     *emergency_active = payload.active;
+
+    // Update emergency state in DB
+    sqlx::query("UPDATE system_state SET emergency_active = ?")
+        .bind(payload.active)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+        })?;
 
     if payload.active {
         // Clear previous scan history when activating emergency
@@ -107,8 +121,17 @@ pub async fn trigger_emergency(
             })?;
     }
 
+    // Broadcast Notification (async)
+    let db_pool = state.db.clone();
+    let active = payload.active;
+    tokio::spawn(async move {
+        if let Err(e) = broadcast_emergency_notification(&db_pool, active).await {
+            println!("Error broadcasting emergency: {}", e);
+        }
+    });
+
     Ok(Json(serde_json::json!({
-        "message": if payload.active { "Emergencia activada" } else { "Emergencia desactivada" },
+        "message": "Emergency status updated",
         "active": payload.active
     })))
 }

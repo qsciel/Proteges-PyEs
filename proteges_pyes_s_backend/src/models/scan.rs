@@ -29,8 +29,7 @@ pub struct ScanHistoryItem {
     pub user_id: i64,
     #[sqlx(default)]
     pub user_name: String,
-    #[sqlx(rename = "fecha_consulta")]
-    pub scan_time: String,
+    pub fecha_consulta: String, // Cambiar de scan_time a fecha_consulta para que coincida con SQL
 }
 
 // Emergency student with scan status

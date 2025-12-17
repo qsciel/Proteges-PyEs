@@ -56,7 +56,7 @@ export default function BarcodeScannerScreen({ navigation }) {
     };
 
     const handleBarCodeScanned = async ({ type, data }) => {
-        console.log("📷 Code scanned:", type, data);
+        // console.log("📷 Code scanned:", type, data); // Debug only
         if (scanned) return;
         setScanned(true);
 

@@ -3,7 +3,7 @@
  * Provides authentication state and functions throughout the app
  */
 
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { SESSION_CONFIG } from '../constants/appConstants';
 import { storeData, getData, removeData } from '../utils/storage';
 
@@ -17,6 +17,8 @@ export const AuthContext = createContext({
     logout: () => { },
     setUser: () => { },
 });
+
+export const useAuth = () => useContext(AuthContext);
 
 /**
  * Auth Context Provider

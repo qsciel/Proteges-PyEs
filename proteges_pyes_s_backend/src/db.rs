@@ -153,7 +153,7 @@ pub async fn init_students(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
                 "+52 645 765 4321",
                 "+52 645 234 5678",
                 "+52 645 345 6789",
-                Some("8DB37406"), // Card UID
+                Some("19014AB8"), // Card UID
             ),
             (
                 "2765432102",

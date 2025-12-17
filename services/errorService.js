@@ -74,23 +74,18 @@ export const handleNetworkError = (error, endpoint) => {
 };
 
 /**
- * Log API request
- * @param {string} method - HTTP method
- * @param {string} endpoint - API endpoint
- * @param {Object} body - Request body
+ * Log API request details (only in debug mode)
  */
-export const logRequest = (method, endpoint, body = null) => {
+export function logRequest(method, endpoint, body = null) {
     if (__DEV__) {
         console.log(`[API Request] ${method} ${endpoint}`, body ? { body } : '');
     }
-};
+}
 
 /**
- * Log API response
- * @param {string} endpoint - API endpoint
- * @param {Object} data - Response data
+ * Log API response details (only in debug mode)
  */
-export const logResponse = (endpoint, data) => {
+export function logResponse(endpoint, data) {
     if (__DEV__) {
         console.log(`[API Response] ${endpoint}`, data);
     }

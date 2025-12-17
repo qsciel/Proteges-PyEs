@@ -1,14 +1,14 @@
 import React, { useContext } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { AuthContext } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { COLORS, SPACING, FONTS, LAYOUT, SHADOWS } from '../theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../services/api';
 
 export default function MainMenuScreen({ navigation }) {
-    const { user, logout } = useContext(AuthContext);
+    const { user, logout } = useAuth();
 
     const menuItems = [
         {
@@ -37,12 +37,11 @@ export default function MainMenuScreen({ navigation }) {
             icon: 'history',
             screen: 'Attendance',
             params: { initialTab: 'history' },
-            description: 'Ver registros de asistencia',
+            description: 'Ver registros',
             color: COLORS.textSecondary
         },
     ];
 
-    // Stats State
     const [stats, setStats] = React.useState({ students: '--', emergencies: 0, system: 'OK' });
 
     useFocusEffect(
@@ -54,11 +53,12 @@ export default function MainMenuScreen({ navigation }) {
     const fetchStats = async () => {
         try {
             const data = await api.getStats();
+            const emergencyStatus = await api.getEmergencyStatus();
             if (data) {
                 setStats({
                     students: data.total_students || '--',
-                    emergencies: data.total_scans || 0, // Using scans as proxy for activity
-                    system: 'OK'
+                    emergencies: data.total_scans || 0,
+                    system: emergencyStatus?.active ? 'EMERGENCIA' : 'OK'
                 });
             }
         } catch (e) { console.error(e); }
@@ -73,6 +73,13 @@ export default function MainMenuScreen({ navigation }) {
             description: 'Gestión de usuarios',
             color: COLORS.warning
         });
+        menuItems.push({
+            title: 'Justificantes',
+            icon: 'file-document-check',
+            screen: 'AdminJustifications',
+            description: 'Revisar solicitudes',
+            color: COLORS.info
+        });
     }
 
     const date = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -80,9 +87,9 @@ export default function MainMenuScreen({ navigation }) {
     return (
         <ScreenWrapper>
             <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-                {/* Modern Header */}
+                {/* Header mejorado */}
                 <View style={styles.header}>
-                    <View>
+                    <View style={styles.headerLeft}>
                         <Text style={styles.dateText}>{date.charAt(0).toUpperCase() + date.slice(1)}</Text>
                         <Text style={styles.username}>{user?.display_name || 'Usuario'}</Text>
                         <View style={styles.roleTag}>
@@ -90,51 +97,58 @@ export default function MainMenuScreen({ navigation }) {
                         </View>
                     </View>
                     <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-                        <MaterialCommunityIcons name="logout" size={20} color={COLORS.danger} />
+                        <MaterialCommunityIcons name="logout" size={22} color={COLORS.danger} />
                     </TouchableOpacity>
                 </View>
 
-                {/* Dashboard Stats */}
-                <Text style={styles.sectionTitle}>Resumen</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsContainer}>
+                {/* Stats Section - Mejorado para responsividad */}
+                <Text style={styles.sectionTitle}>Resumen del Sistema</Text>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.statsContainer}
+                >
                     <View style={[styles.statCard, { backgroundColor: COLORS.primary }]}>
-                        <MaterialCommunityIcons name="school" size={24} color={COLORS.white} />
+                        <MaterialCommunityIcons name="school" size={32} color={COLORS.white} />
                         <Text style={styles.statNumber}>{stats.students}</Text>
                         <Text style={styles.statLabel}>Estudiantes</Text>
                     </View>
                     <View style={[styles.statCard, { backgroundColor: COLORS.secondary }]}>
-                        <MaterialCommunityIcons name="alert-circle" size={24} color={COLORS.title} />
-                        <Text style={[styles.statNumber, { color: COLORS.title }]}>{stats.emergencies}</Text>
-                        <Text style={[styles.statLabel, { color: COLORS.title }]}>Escaneos</Text>
+                        <MaterialCommunityIcons name="qrcode-scan" size={32} color={COLORS.white} />
+                        <Text style={styles.statNumber}>{stats.emergencies}</Text>
+                        <Text style={styles.statLabel}>Escaneos</Text>
                     </View>
-                    <View style={[styles.statCard, { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border }]}>
-                        <MaterialCommunityIcons name="clock-outline" size={24} color={COLORS.text} />
-                        <Text style={[styles.statNumber, { color: COLORS.text }]}>{stats.system}</Text>
-                        <Text style={[styles.statLabel, { color: COLORS.text }]}>Sistema</Text>
+                    <View style={[styles.statCard, { backgroundColor: stats.system === 'EMERGENCIA' ? COLORS.danger : COLORS.success }]}>
+                        <MaterialCommunityIcons
+                            name={stats.system === 'EMERGENCIA' ? 'alert-circle' : 'check-circle'}
+                            size={32}
+                            color={COLORS.white}
+                        />
+                        <Text style={styles.statNumber}>{stats.system}</Text>
+                        <Text style={styles.statLabel}>Estado</Text>
                     </View>
                 </ScrollView>
 
-                <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+                <Text style={styles.sectionTitle}>Acciones Principales</Text>
 
+                {/* Menu Items - Más espaciados y claros */}
                 <View style={styles.grid}>
                     {menuItems.map((item, index) => (
                         <TouchableOpacity
                             key={index}
                             style={styles.gridItem}
                             onPress={() => navigation.navigate(item.screen, item.params || {})}
-                            activeOpacity={0.8}
+                            activeOpacity={0.7}
                         >
                             <View style={styles.cardContent}>
                                 <View style={[styles.iconContainer, { backgroundColor: item.color + '15' }]}>
-                                    <MaterialCommunityIcons name={item.icon} size={32} color={item.color} />
+                                    <MaterialCommunityIcons name={item.icon} size={36} color={item.color} />
                                 </View>
                                 <View style={styles.textContainer}>
                                     <Text style={styles.cardTitle}>{item.title}</Text>
                                     <Text style={styles.cardDescription}>{item.description}</Text>
                                 </View>
-                                <View style={[styles.arrowBtn, { backgroundColor: COLORS.background }]}>
-                                    <MaterialCommunityIcons name="arrow-right" size={20} color={COLORS.textSecondary} />
-                                </View>
+                                <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.textSecondary} />
                             </View>
                         </TouchableOpacity>
                     ))}
@@ -147,76 +161,82 @@ export default function MainMenuScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         padding: SPACING.l,
-        paddingBottom: 120, // Extra padding for bottom tab bar
+        paddingBottom: 120,
     },
     header: {
-        marginBottom: SPACING.l,
-        marginTop: SPACING.s,
+        marginBottom: SPACING.xl,
+        marginTop: SPACING.m,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
+    },
+    headerLeft: {
+        flex: 1,
     },
     dateText: {
         fontSize: 14,
         color: COLORS.textSecondary,
         textTransform: 'uppercase',
         letterSpacing: 1,
-        marginBottom: 4,
+        marginBottom: 6,
         ...FONTS.medium,
     },
     username: {
-        fontSize: 28,
+        fontSize: 32,
         color: COLORS.text,
         ...FONTS.bold,
-        marginBottom: 8,
+        marginBottom: SPACING.s,
     },
     roleTag: {
         backgroundColor: COLORS.primary + '20',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
         borderRadius: 12,
         alignSelf: 'flex-start',
     },
     roleText: {
         color: COLORS.primary,
-        fontSize: 12,
+        fontSize: 13,
         ...FONTS.bold,
     },
     logoutButton: {
-        padding: 10,
+        padding: 12,
         backgroundColor: COLORS.danger + '10',
         borderRadius: 12,
     },
     sectionTitle: {
-        fontSize: 18,
+        fontSize: 20,
         color: COLORS.text,
         ...FONTS.bold,
         marginBottom: SPACING.m,
-        marginLeft: 4,
+        marginTop: SPACING.s,
     },
     statsContainer: {
-        marginBottom: SPACING.xl,
-        flexDirection: 'row',
+        paddingBottom: SPACING.m,
+        marginBottom: SPACING.l,
     },
     statCard: {
-        width: 120,
-        padding: SPACING.m,
-        borderRadius: 16,
+        width: 140,
+        padding: SPACING.l,
+        borderRadius: LAYOUT.radius.m,
         marginRight: SPACING.m,
-        ...SHADOWS.small,
-        justifyContent: 'space-between',
-        height: 100,
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...SHADOWS.medium,
+        minHeight: 140,
     },
     statNumber: {
-        fontSize: 24,
+        fontSize: 28,
         color: COLORS.white,
         ...FONTS.bold,
-        marginTop: 8,
+        marginTop: SPACING.m,
+        marginBottom: 4,
     },
     statLabel: {
-        fontSize: 12,
+        fontSize: 13,
         color: COLORS.white,
-        opacity: 0.9,
+        opacity: 0.95,
+        ...FONTS.medium,
     },
     grid: {
         gap: SPACING.m,
@@ -225,19 +245,20 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.s,
         ...SHADOWS.small,
         backgroundColor: COLORS.surface,
-        borderRadius: 20,
+        borderRadius: LAYOUT.radius.m,
         borderWidth: 1,
         borderColor: COLORS.border,
     },
     cardContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: SPACING.m,
+        padding: SPACING.l,
+        minHeight: 80,
     },
     iconContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 14,
+        width: 60,
+        height: 60,
+        borderRadius: LAYOUT.radius.m,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: SPACING.m,
@@ -249,17 +270,11 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: COLORS.text,
         ...FONTS.bold,
-        marginBottom: 2,
+        marginBottom: 4,
     },
     cardDescription: {
-        fontSize: 13,
+        fontSize: 14,
         color: COLORS.textSecondary,
-    },
-    arrowBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
+        ...FONTS.medium,
     },
 });
