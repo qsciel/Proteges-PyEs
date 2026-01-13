@@ -1,9 +1,9 @@
 use axum::{extract::State, http::StatusCode, Json};
-use sqlx::{Pool, Sqlite};
+use sqlx::Row;
 
 use crate::{
     models::{
-        scan::{EmergencyStatus, EmergencyStudent, EmergencyTriggerRequest, ScanHistoryItem},
+        scan::{EmergencyStatus, EmergencyStudent, EmergencyTriggerRequest},
         student::Student,
     },
     state::AppState,
@@ -58,55 +58,74 @@ pub async fn get_emergency_students(
 }
 
 pub async fn get_emergency_history(
-    State(pool): State<Pool<Sqlite>>,
-) -> Result<Json<Vec<ScanHistoryItem>>, (StatusCode, Json<serde_json::Value>)> {
-    let history = sqlx::query_as::<_, ScanHistoryItem>(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, Json<serde_json::Value>)> {
+    let history = sqlx::query(
         r#"
-        SELECT 
-            h.id_escaneo, 
-            h.estudiante_consultado,
-            COALESCE(e.nombres || ' ' || e.apellido_paterno, 'Desconocido') as student_name,
-            h.consultado_por,
-            COALESCE(u.display_name, 'Sistema') as user_name,
-            h.fecha_consulta
-        FROM historial_consulta h
-        LEFT JOIN estudiantes e ON h.estudiante_consultado = e.id_control_escolar
-        LEFT JOIN usuarios u ON h.consultado_por = u.id
-        ORDER BY h.fecha_consulta DESC
+        SELECT
+            eh.id,
+            eh.action,
+            eh.timestamp,
+            eh.total_students,
+            eh.scanned_students,
+            eh.missing_students,
+            eh.notes,
+            u.nombre_mostrado as user_name
+        FROM emergency_history eh
+        LEFT JOIN usuarios u ON eh.triggered_by = u.id_usuario
+        ORDER BY eh.timestamp DESC
+        LIMIT 50
         "#,
     )
-    .fetch_all(&pool)
+    .fetch_all(&state.db)
     .await
     .unwrap_or_else(|e| {
-        eprintln!(
-            "Error fetching emergency history (returning empty): {:?}",
-            e
-        );
-        Vec::new() // Return empty vector instead of error
+        eprintln!("Error fetching emergency history: {:?}", e);
+        Vec::new()
     });
 
-    Ok(Json(history))
+    let formatted_history: Vec<serde_json::Value> = history
+        .into_iter()
+        .map(|record| {
+            serde_json::json!({
+                "id": record.get::<i64, _>("id"),
+                "action": record.get::<String, _>("action"),
+                "timestamp": record.get::<String, _>("timestamp"),
+                "total_students": record.get::<i64, _>("total_students"),
+                "scanned_students": record.get::<i64, _>("scanned_students"),
+                "missing_students": record.get::<i64, _>("missing_students"),
+                "user_name": record.get::<Option<String>, _>("user_name").unwrap_or_else(|| "Sistema".to_string()),
+                "notes": record.get::<Option<String>, _>("notes")
+            })
+        })
+        .collect();
+
+    Ok(Json(formatted_history))
 }
 
 pub async fn trigger_emergency(
     State(state): State<AppState>,
     Json(payload): Json<EmergencyTriggerRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    // Update emergency state
+    // Update emergency state in memory
     let mut emergency_active = state.emergency_active.write().await;
     *emergency_active = payload.active;
 
     // Update emergency state in DB
-    sqlx::query("UPDATE system_state SET emergency_active = ?")
+    sqlx::query("UPDATE system_state SET emergency_active = ?, last_updated = CURRENT_TIMESTAMP WHERE id = 1")
         .bind(payload.active)
         .execute(&state.db)
         .await
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
+                Json(serde_json::json!({"error": format!("Error updating system state: {}", e)})),
             )
         })?;
+
+    // Calculate current stats for history
+    let mut total_students = 0;
+    let mut scanned_students = 0;
 
     if payload.active {
         // Clear previous scan history when activating emergency
@@ -116,10 +135,63 @@ pub async fn trigger_emergency(
             .map_err(|_| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({"error": "Error al activar emergencia"})),
+                    Json(serde_json::json!({"error": "Error al limpiar historial"})),
                 )
             })?;
+
+        // Count total students
+        total_students = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM estudiantes")
+            .fetch_one(&state.db)
+            .await
+            .unwrap_or(0);
+    } else {
+        // When ending emergency, get final counts
+        total_students = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM estudiantes")
+            .fetch_one(&state.db)
+            .await
+            .unwrap_or(0);
+
+        scanned_students = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(DISTINCT estudiante_consultado) FROM historial_consulta",
+        )
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or(0);
     }
+
+    let missing_students = total_students - scanned_students;
+
+    // Save to emergency history
+    let action = if payload.active {
+        "ACTIVATED"
+    } else {
+        "DEACTIVATED"
+    };
+    let notes = if payload.active {
+        "Protocolo de emergencia activado".to_string()
+    } else {
+        format!(
+            "Emergencia finalizada - {} de {} estudiantes localizados",
+            scanned_students, total_students
+        )
+    };
+
+    sqlx::query(
+        "INSERT INTO emergency_history (action, triggered_by, total_students, scanned_students, missing_students, notes) VALUES (?, ?, ?, ?, ?, ?)"
+    )
+    .bind(action)
+    .bind(payload.user_id)
+    .bind(total_students)
+    .bind(scanned_students)
+    .bind(missing_students)
+    .bind(notes)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        eprintln!("Error saving emergency history: {}", e);
+        // Don't fail the request if history save fails
+    })
+    .ok();
 
     // Broadcast Notification (async)
     let db_pool = state.db.clone();
@@ -131,8 +203,13 @@ pub async fn trigger_emergency(
     });
 
     Ok(Json(serde_json::json!({
-        "message": "Emergency status updated",
-        "active": payload.active
+        "message": if payload.active { "Emergencia activada" } else { "Emergencia desactivada" },
+        "active": payload.active,
+        "stats": {
+            "total": total_students,
+            "scanned": scanned_students,
+            "missing": missing_students
+        }
     })))
 }
 

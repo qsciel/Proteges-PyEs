@@ -32,6 +32,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // inicializar la base de datos
     db::init_db(&pool).await?;
+    // inicializar el estado del sistema
+    if let Err(e) = db::init_system_state(&pool).await {
+        warn!("Error al inicializar estado del sistema: {}", e);
+    }
     // crear el usuario operador/admin si no existe
     if let Err(e) = db::init_operator(&pool).await {
         warn!("Error crear el operador/admin: {}", e);
@@ -45,10 +49,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // crear estudiantes de prueba si no existen
     db::init_students(&pool).await?;
 
+    // cargar estado de emergencia desde la base de datos
+    let emergency_state =
+        sqlx::query_scalar::<_, bool>("SELECT emergency_active FROM system_state WHERE id = 1")
+            .fetch_optional(&pool)
+            .await
+            .unwrap_or(Some(false))
+            .unwrap_or(false);
+
+    info!("Estado de emergencia cargado: {}", emergency_state);
+
     // crear el estado compartido
     let state = AppState {
         db: pool.clone(),
-        emergency_active: std::sync::Arc::new(tokio::sync::RwLock::new(false)),
+        emergency_active: std::sync::Arc::new(tokio::sync::RwLock::new(emergency_state)),
     };
     // crear el router con las rutas y el estado
     let app = create_router().with_state(state);

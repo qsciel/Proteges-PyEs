@@ -9,6 +9,23 @@ pub async fn init_db(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+// inicializar el estado del sistema si no existe
+pub async fn init_system_state(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+    // verificar si existe el estado del sistema
+    let count: i64 = sqlx::query("SELECT count(*) FROM system_state WHERE id = 1")
+        .fetch_one(pool)
+        .await?
+        .get(0);
+
+    if count == 0 {
+        sqlx::query("INSERT INTO system_state (id, emergency_active) VALUES (1, FALSE)")
+            .execute(pool)
+            .await?;
+        info!("Estado del sistema inicializado");
+    }
+    Ok(())
+}
+
 // crear el usuario operador/admin si no existe
 pub async fn init_operator(pool: &Pool<Sqlite>) -> Result<(), Box<dyn std::error::Error>> {
     // checamos si no existe un operador
@@ -199,22 +216,22 @@ pub async fn init_students(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
         {
             sqlx::query(
                 r#"
-                INSERT INTO estudiantes 
+                INSERT INTO estudiantes
                 (
-                    id_control_escolar, 
-                    nombres, 
-                    apellido_paterno, 
-                    apellido_materno, 
-                    fecha_nacimiento, 
-                    especialidad, 
-                    grupo, 
-                    tipo_de_sangre, 
-                    alergias, 
-                    enfermedades_cronicas, 
+                    id_control_escolar,
+                    nombres,
+                    apellido_paterno,
+                    apellido_materno,
+                    fecha_nacimiento,
+                    especialidad,
+                    grupo,
+                    tipo_de_sangre,
+                    alergias,
+                    enfermedades_cronicas,
                     domicilio,
-                    telefono_personal, 
-                    telefono_tutor_principal, 
-                    telefono_tutor_secundario, 
+                    telefono_personal,
+                    telefono_tutor_principal,
+                    telefono_tutor_secundario,
                     telefono_emergencia,
                     card_uid
                 )
